@@ -1,0 +1,27 @@
+[Unit]
+Description=Servicio de paquetes de la tienda de VasakOS
+Documentation=https://github.com/Vasak-OS/vasak-store
+
+[Service]
+Type=dbus
+BusName=ar.net.vasak.os.Store
+ExecStart=/usr/bin/vasak-store-daemon
+
+# El servicio se va solo a los cinco minutos sin trabajo y D-Bus lo vuelve a
+# levantar cuando alguien pide algo. Un proceso con root dormido mientras la
+# ventana está abierta es superficie de ataque a cambio de nada.
+#
+# Sobre el blindaje: acá hay muy poco que se pueda poner. Este servicio existe
+# para instalar paquetes, y un paquete trae guiones que corren como root y
+# ganchos que ejecutan programas arbitrarios —mkinitcpio, la actualización del
+# gestor de arranque, la reconstrucción de la caché de fuentes—. `ProtectSystem`
+# o `NoNewPrivileges` no son endurecimiento acá: son una forma de que la mitad
+# de los paquetes de Arch fallen al instalarse. Lo que sí se puede es esto:
+PrivateTmp=false
+# Los paquetes escriben en /tmp durante la instalación y algunos guiones
+# esperan ver el mismo /tmp que el resto del sistema.
+RestartSec=1
+
+[Install]
+# No se habilita: lo levanta D-Bus cuando hace falta.
+WantedBy=

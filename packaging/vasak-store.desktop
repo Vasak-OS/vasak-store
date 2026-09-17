@@ -1,0 +1,14 @@
+[Desktop Entry]
+Type=Application
+Name=Store
+Name[es]=Tienda
+Comment=Install and update software
+Comment[es]=Instalar y actualizar programas
+Exec=vasak-store
+Icon=vasak-store
+Terminal=false
+Categories=System;PackageManager;
+Keywords=software;package;install;update;
+Keywords[es]=programas;paquetes;instalar;actualizar;tienda;
+StartupNotify=true
+StartupWMClass=vasak-store

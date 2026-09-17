@@ -2,11 +2,22 @@
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
+import PanelDeOperacion from '@/components/tienda/PanelDeOperacion.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
+import { useOperaciones } from '@/stores/operaciones';
+import { useTienda } from '@/stores/tienda';
 
-let unListenConfig: Ref<UnlistenFn | null> = ref(null);
+const unListenConfig: Ref<UnlistenFn | null> = ref(null);
+const operaciones = useOperaciones();
+const tienda = useTienda();
 
 onMounted(async () => {
+	// Los eventos del backend se escuchan desde acá, una sola vez: una
+	// instalación empezada en una sección se sigue mirando desde otra, y si la
+	// suscripción viviera en la pantalla se perderían los eventos del medio.
+	await operaciones.escuchar();
+	await tienda.contar();
+
 	try {
 		const configStore = useConfigStore();
 		await configStore.loadConfig();
@@ -16,18 +27,23 @@ onMounted(async () => {
 				configStore.loadConfig();
 			});
 		});
-	} catch (error: any) {
+	} catch (error: unknown) {
 		console.error('Error al cargar configuración en App.vue', error);
 	}
 });
 
 onUnmounted(() => {
-	if (unListenConfig.value !== null) {
-		unListenConfig.value();
-	}
+	unListenConfig.value?.();
+	operaciones.soltarTodo();
 });
 </script>
 
 <template>
-  <WindowAppLayout />
+  <WindowAppLayout>
+    <RouterView />
+    <!-- El panel de la operación vive en el marco y no en una pantalla: sigue
+         ahí al cambiar de sección, que es justo lo que hace falta mientras algo
+         se instala. -->
+    <PanelDeOperacion />
+  </WindowAppLayout>
 </template>

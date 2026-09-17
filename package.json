@@ -1,5 +1,5 @@
 {
-  "name": "vapp",
+  "name": "vasak-store",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -23,7 +23,8 @@
     "@vasakgroup/plugin-vsk-journal": "^2.0.0",
     "@vasakgroup/tauri-plugin-i18n": "^2.1.0",
     "pinia": "^3.0.4",
-    "vue": "^3.5.42"
+    "vue": "^3.5.42",
+    "vue-router": "^4.6.3"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.5.12",

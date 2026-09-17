@@ -1,0 +1,375 @@
+//! Lo que la ventana puede pedir.
+//!
+//! **Todos son `async`, sin excepción.** No es estilo: Tauri despacha los
+//! comandos que no son `async` en el hilo principal, que es el de GTK, y ahí
+//! cualquier cosa que tarde congela la ventana entera —ni se dibuja, ni se puede
+//! mover, ni se cierra—. En esta aplicación casi todo tarda: abrir libalpm, leer
+//! veinte megas de catálogo, hablar con un servidor. Un solo comando sin `async`
+//! alcanza para que la tienda parezca colgada.
+
+use std::collections::HashSet;
+use std::path::PathBuf;
+use std::sync::OnceLock;
+
+use tauri::{AppHandle, Emitter, State};
+use vasak_store_protocol::repositorios::Repositorio;
+use vasak_store_protocol::Previsualizacion;
+
+use crate::appimage::{self, AppImage};
+use crate::aur;
+use crate::cliente::{Cliente, Final, Linea};
+use crate::lector::Lector;
+use crate::medios;
+use crate::tipos::{Descubrimiento, Detalle, Pagina, Tarjeta};
+
+/// Cuántos resultados vuelven de una búsqueda si no se pide otra cosa.
+///
+/// Los repositorios tienen más de quince mil paquetes y la lista es virtual,
+/// pero serializar quince mil tarjetas a JSON en cada tecla sí se nota.
+const LIMITE: usize = 60;
+
+/// Lo que los comandos comparten.
+pub struct Estado {
+    pub lector: Lector,
+    /// El cliente del demonio, cuando la conexión ya está.
+    ///
+    /// Llega después: conectarse al bus del sistema es asíncrono y el arranque
+    /// no espera por eso. Una ventana que no abre porque el servicio tarda es
+    /// peor que una que abre y dice que todavía no puede instalar.
+    pub cliente: OnceLock<Cliente>,
+    /// `~/.cache/vasak-store`, donde van íconos y capturas.
+    pub cache: PathBuf,
+    /// `~/.local/share/vasak-store`, donde viven los AppImage.
+    pub datos: PathBuf,
+    /// El directorio de la persona, para el `.desktop` del menú.
+    pub inicio: PathBuf,
+    pub http: reqwest::Client,
+}
+
+impl Estado {
+    fn servicio(&self) -> Result<&Cliente, String> {
+        self.cliente
+            .get()
+            .ok_or_else(|| "no hay conexión con el servicio de paquetes".to_string())
+    }
+}
+
+#[tauri::command]
+pub async fn descubrir(estado: State<'_, Estado>) -> Result<Descubrimiento, String> {
+    Ok(estado.lector.descubrir().await)
+}
+
+/// Busca en los repositorios y, si se pide, también en el AUR.
+///
+/// El AUR va después y aparte: son dos fuentes con dos niveles de confianza
+/// distintos, y mezclarlas ordenadas por relevancia haría que un paquete que
+/// alguien subió ayer pueda aparecer antes que el oficial con el mismo nombre.
+#[tauri::command]
+pub async fn buscar(
+    estado: State<'_, Estado>,
+    texto: String,
+    incluir_aur: bool,
+    limite: Option<usize>,
+) -> Result<Pagina, String> {
+    let limite = limite.unwrap_or(LIMITE);
+    let mut pagina = estado.lector.buscar(texto.clone(), limite).await;
+
+    // Los AppImage integrados van primero: son pocos y son de la persona, así
+    // que si uno coincide es casi seguro el que buscaba.
+    let suyos: Vec<Tarjeta> = appimage::listar(&estado.datos, &estado.inicio)
+        .iter()
+        .filter(|a| crate::lector::puntaje(&texto, &a.id, &a.titulo).is_some())
+        .map(|a| a.como_tarjeta())
+        .collect();
+    pagina.total += suyos.len();
+    for (posicion, tarjeta) in suyos.into_iter().enumerate() {
+        pagina.resultados.insert(posicion, tarjeta);
+    }
+
+    if incluir_aur {
+        // Un fallo del AUR no puede llevarse puesta la búsqueda: si no hay red,
+        // lo de los repositorios sigue estando y es lo que importa.
+        if let Ok(del_aur) = aur::buscar(&texto).await {
+            let ya_estan: HashSet<String> =
+                pagina.resultados.iter().map(|t| t.nombre.clone()).collect();
+            let suman: Vec<Tarjeta> = del_aur
+                .into_iter()
+                .filter(|t| !ya_estan.contains(&t.nombre))
+                .take(limite)
+                .collect();
+            pagina.total += suman.len();
+            pagina.resultados.extend(suman);
+        }
+    }
+
+    Ok(pagina)
+}
+
+#[tauri::command]
+pub async fn instaladas(estado: State<'_, Estado>, texto: String) -> Result<Pagina, String> {
+    Ok(estado.lector.instaladas(texto).await)
+}
+
+#[tauri::command]
+pub async fn actualizaciones(estado: State<'_, Estado>) -> Result<Vec<Tarjeta>, String> {
+    Ok(estado.lector.actualizaciones().await)
+}
+
+#[tauri::command]
+pub async fn de_categoria(
+    estado: State<'_, Estado>,
+    categoria: String,
+    limite: Option<usize>,
+) -> Result<Pagina, String> {
+    Ok(estado
+        .lector
+        .de_categoria(categoria, limite.unwrap_or(LIMITE))
+        .await)
+}
+
+/// La ficha entera, con las capturas ya bajadas al disco.
+#[tauri::command]
+pub async fn detalle(
+    estado: State<'_, Estado>,
+    nombre: String,
+    del_aur: bool,
+) -> Result<Detalle, String> {
+    if del_aur {
+        return aur::detalle(&nombre)
+            .await?
+            .ok_or_else(|| format!("el AUR no tiene ningún paquete llamado {nombre}"));
+    }
+
+    let (mut detalle, capturas) = estado
+        .lector
+        .detalle(nombre.clone())
+        .await
+        .ok_or_else(|| format!("no hay ningún paquete llamado {nombre}"))?;
+
+    // Las capturas se bajan en paralelo: son tres o cuatro servidores
+    // distintos y esperarlos de a uno multiplica la espera por cuatro.
+    let bajadas = futures_util::future::join_all(capturas.into_iter().map(|captura| {
+        let cache = estado.cache.clone();
+        let http = estado.http.clone();
+        async move {
+            medios::traer_captura(&captura.url, &cache, &http)
+                .await
+                .map(|ruta| (ruta, captura.titulo))
+        }
+    }))
+    .await;
+
+    crate::lector::con_capturas(&mut detalle, bajadas.into_iter().flatten().collect());
+    Ok(detalle)
+}
+
+/// El PKGBUILD de un paquete del AUR, para poder leerlo antes de compilarlo.
+#[tauri::command]
+pub async fn receta_del_aur(nombre: String) -> Result<String, String> {
+    aur::receta(&nombre).await
+}
+
+#[tauri::command]
+pub async fn previsualizar(
+    estado: State<'_, Estado>,
+    operacion: String,
+    paquetes: Vec<String>,
+    con_huerfanas: bool,
+) -> Result<Previsualizacion, String> {
+    estado
+        .servicio()?
+        .previsualizar(&operacion, paquetes, con_huerfanas)
+        .await
+}
+
+#[tauri::command]
+pub async fn instalar(estado: State<'_, Estado>, paquetes: Vec<String>) -> Result<String, String> {
+    estado.servicio()?.instalar(paquetes).await
+}
+
+#[tauri::command]
+pub async fn quitar(
+    estado: State<'_, Estado>,
+    paquetes: Vec<String>,
+    con_huerfanas: bool,
+) -> Result<String, String> {
+    estado.servicio()?.quitar(paquetes, con_huerfanas).await
+}
+
+#[tauri::command]
+pub async fn actualizar_todo(estado: State<'_, Estado>) -> Result<String, String> {
+    estado.servicio()?.actualizar().await
+}
+
+#[tauri::command]
+pub async fn sincronizar(estado: State<'_, Estado>) -> Result<String, String> {
+    estado.servicio()?.sincronizar().await
+}
+
+/// Vuelve a abrir las bases de datos. Se llama cuando una operación termina.
+#[tauri::command]
+pub async fn recargar(estado: State<'_, Estado>) -> Result<(), String> {
+    estado.lector.recargar().await;
+    Ok(())
+}
+
+/// Compila algo del AUR y lo instala.
+///
+/// Devuelve el identificador en el acto y sigue trabajando en segundo plano: el
+/// proceso son varios minutos —clonar, compilar, instalar— y la ventana tiene
+/// que poder mostrar el registro mientras tanto. Los avances salen por los
+/// mismos eventos que los del demonio, así que la pantalla no distingue.
+#[tauri::command]
+pub async fn instalar_del_aur(
+    app: AppHandle,
+    estado: State<'_, Estado>,
+    nombre: String,
+) -> Result<String, String> {
+    let cliente = estado.servicio()?.clone();
+    let lector = estado.lector.clone();
+    let trabajo = aur::directorio_de_trabajo(&estado.cache);
+    let id = format!("aur:{nombre}");
+
+    let devuelto = id.clone();
+    tauri::async_runtime::spawn(async move {
+        let error = compilar_e_instalar(&app, &cliente, &lector, &nombre, &trabajo, &id)
+            .await
+            .err()
+            .unwrap_or_default();
+        lector.recargar().await;
+        let _ = app.emit("tienda://terminada", Final { id, error });
+    });
+
+    Ok(devuelto)
+}
+
+async fn compilar_e_instalar(
+    app: &AppHandle,
+    cliente: &Cliente,
+    lector: &Lector,
+    nombre: &str,
+    trabajo: &std::path::Path,
+    id: &str,
+) -> Result<(), String> {
+    let registrar = {
+        let app = app.clone();
+        let id = id.to_string();
+        move |texto: String| {
+            let _ = app.emit(
+                "tienda://registro",
+                Linea {
+                    id: id.clone(),
+                    texto,
+                },
+            );
+        }
+    };
+
+    registrar(format!("resolviendo las dependencias de {nombre}"));
+    let (instalados, disponibles) = lector.nombres().await;
+    let plan = aur::planificar(
+        nombre,
+        |n| instalados.contains(n),
+        |n| disponibles.contains(n),
+    )
+    .await?;
+
+    if !plan.del_repositorio.is_empty() {
+        registrar(format!(
+            "instalando desde los repositorios: {}",
+            plan.del_repositorio.join(", ")
+        ));
+        cliente
+            .hacer_y_esperar("Instalar", &(plan.del_repositorio.clone(),))
+            .await?;
+    }
+
+    for paquete in &plan.del_aur {
+        registrar(format!("compilando {paquete}"));
+        let construidos = aur::construir(paquete, trabajo, registrar.clone()).await?;
+        registrar(format!("instalando {paquete}"));
+        cliente
+            .hacer_y_esperar("InstalarArchivos", &(construidos,))
+            .await?;
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
+pub async fn repositorios(estado: State<'_, Estado>) -> Result<Vec<Repositorio>, String> {
+    estado.servicio()?.repositorios().await
+}
+
+#[tauri::command]
+pub async fn cambiar_repositorio(
+    estado: State<'_, Estado>,
+    nombre: String,
+    activo: bool,
+) -> Result<(), String> {
+    estado
+        .servicio()?
+        .cambiar_repositorio(&nombre, activo)
+        .await
+}
+
+#[tauri::command]
+pub async fn agregar_repositorio(
+    estado: State<'_, Estado>,
+    nombre: String,
+    servidor: String,
+    siglevel: String,
+) -> Result<(), String> {
+    estado
+        .servicio()?
+        .agregar_repositorio(&nombre, &servidor, &siglevel)
+        .await
+}
+
+#[tauri::command]
+pub async fn quitar_repositorio(estado: State<'_, Estado>, nombre: String) -> Result<(), String> {
+    estado.servicio()?.quitar_repositorio(&nombre).await
+}
+
+#[tauri::command]
+pub async fn appimages(estado: State<'_, Estado>) -> Result<Vec<AppImage>, String> {
+    let datos = estado.datos.clone();
+    let inicio = estado.inicio.clone();
+    tauri::async_runtime::spawn_blocking(move || appimage::listar(&datos, &inicio))
+        .await
+        .map_err(|e| format!("no se pudo listar: {e}"))
+}
+
+#[tauri::command]
+pub async fn integrar_appimage(
+    estado: State<'_, Estado>,
+    ruta: String,
+) -> Result<AppImage, String> {
+    let datos = estado.datos.clone();
+    let inicio = estado.inicio.clone();
+    // Copiar un archivo de varios cientos de megas bloquea; va al pozo de hilos.
+    tauri::async_runtime::spawn_blocking(move || {
+        appimage::integrar(std::path::Path::new(&ruta), &datos, &inicio)
+    })
+    .await
+    .map_err(|e| format!("no se pudo integrar: {e}"))?
+}
+
+#[tauri::command]
+pub async fn quitar_appimage(estado: State<'_, Estado>, id: String) -> Result<(), String> {
+    appimage::quitar(&id, &estado.datos, &estado.inicio)
+}
+
+/// Arranca un AppImage administrado.
+#[tauri::command]
+pub async fn ejecutar_appimage(estado: State<'_, Estado>, id: String) -> Result<(), String> {
+    let ruta = appimage::ruta_de(&id, &estado.datos)
+        .ok_or_else(|| format!("no hay ningún AppImage llamado {id}"))?;
+    std::process::Command::new(&ruta)
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map(|_| ())
+        .map_err(|e| format!("no se pudo ejecutar: {e}"))
+}

@@ -5,6 +5,7 @@ import I18n from '@vasakgroup/tauri-plugin-i18n';
 import { createPinia } from 'pinia';
 import { createApp } from 'vue';
 import App from '@/App.vue';
+import router from '@/router';
 import { sanearUrl } from '@/tools/csp';
 import '@/assets/main.css';
 
@@ -51,6 +52,7 @@ const app = createApp(App);
 const pinia = createPinia();
 
 app.use(pinia);
+app.use(router);
 
 // Un error de Vue en producción no va a ninguna parte; al menos que quede en la
 // consola con el contexto de dónde ocurrió.

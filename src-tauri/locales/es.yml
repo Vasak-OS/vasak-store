@@ -9,13 +9,153 @@ _version: 1
 #  2. Los dos idiomas tienen que tener las **mismas claves** y los mismos
 #     marcadores `{0}`. Hay un test que lo verifica.
 app:
-  nombre: Aplicación Vasak
+  nombre: Tienda
 ventana:
   minimizar: Minimizar
   maximizar: Maximizar
   cerrar: Cerrar
-inicio:
-  titulo: Hola, VasakOS
-  descripcion: Esta es la plantilla. Reemplazá esta pantalla por la tuya.
-  # `t()` no interpola: el marcador se reemplaza a mano. Ver el README.
-  saludo: "Hola, {0}"
+secciones:
+  descubrir: Descubrir
+  instaladas: Instaladas
+  actualizaciones: Actualizaciones
+  repositorios: Repositorios
+comun:
+  cargando: Cargando…
+  reintentar: Reintentar
+  cerrar: Cerrar
+  cancelar: Cancelar
+  aceptar: Aceptar
+  volver: Volver
+  buscar: Buscar
+  sinConexion: No hay conexión con el servicio de paquetes. La tienda puede mostrar y buscar, pero no instalar ni quitar nada.
+busqueda:
+  marcador: Buscar programas
+  incluirAur: Incluir el AUR
+  incluirAurNota: Recetas que sube cualquiera y que se compilan en tu máquina. La distribución las trata como inseguras.
+  sinResultados: No se encontró nada
+  sinResultadosNota: Probá con otra palabra, o activá el AUR para buscar también ahí.
+  resultadosOne: "{0} resultado"
+  resultadosOther: "{0} resultados"
+  filtroOrigen: Origen
+  todos: Todos
+origen:
+  repositorio: Repositorio
+  aur: AUR
+  appimage: AppImage
+  local: Instalado
+  repositorioNota: Firmado y revisado por la distribución.
+  aurNota: Sin revisar. Se compila acá con lo que el autor haya escrito.
+  appimageNota: Un archivo que bajaste. Corre confinado por AppArmor.
+  localNota: Está instalado, pero ya no hay repositorio que lo provea.
+categorias:
+  titulo: Categorías
+  juegos: Juegos
+  desarrollo: Desarrollo
+  productividad: Productividad
+  multimedia: Multimedia
+  sistema: Sistema
+  utilidades: Utilidades
+  cuantasOne: "{0} aplicación"
+  cuantasOther: "{0} aplicaciones"
+descubrir:
+  seleccion: Para descubrir
+  seleccionNota: "Una muestra al azar que cambia todos los días. No es un ranking: en una máquina no hay manera de saber qué instala la gente."
+  novedades: Actualizados hace poco
+  novedadesNota: Por fecha de construcción del paquete, que es el dato que la máquina sí tiene.
+  vacio: No hay catálogo de aplicaciones instalado.
+  vacioNota: Falta el paquete archlinux-appstream-data. Sin él la tienda igual busca e instala, pero no puede mostrar nombres, íconos ni capturas.
+instaladas:
+  titulo: Instaladas
+  filtro: Filtrar lo instalado
+  vacio: No hay nada que mostrar
+  quitar: Desinstalar
+  conHuerfanas: Llevarse también las dependencias que queden sin uso
+  appimages: AppImages
+  appimagesNota: Archivos portables que integraste. Viven en tu carpeta y el perfil de AppArmor les cierra la cámara, el micrófono y tus credenciales.
+  sumarAppimage: Integrar un AppImage
+  soltarAqui: Soltá un archivo .AppImage acá
+  ejecutar: Abrir
+  quitarAppimage: Quitar
+  sinAppimages: No hay ningún AppImage integrado
+actualizaciones:
+  titulo: Actualizaciones
+  ninguna: El sistema está al día
+  ningunaNota: No hay nada para actualizar.
+  actualizarTodo: Actualizar todo
+  sincronizar: Comprobar de nuevo
+  disponiblesOne: "{0} actualización disponible"
+  disponiblesOther: "{0} actualizaciones disponibles"
+  actualizar: Actualizar
+  desde: "de {0}"
+  hasta: "a {0}"
+repositorios:
+  titulo: Repositorios
+  explicacion: De acá salen los paquetes. Apagar uno no desinstala nada, pero deja de ofrecer sus actualizaciones.
+  activo: Activo
+  inactivo: Inactivo
+  protegido: No se puede tocar desde acá
+  protegidoNota: Sin este repositorio el sistema se queda sin actualizaciones de seguridad. Se puede editar a mano en /etc/pacman.conf.
+  servidores: Servidores
+  lista: Lista de réplicas
+  agregar: Agregar un repositorio
+  nombre: Nombre
+  servidor: Servidor
+  firma: Nivel de firma
+  firmaNota: Required comprueba la firma de cada paquete. Never no comprueba nada, y eso es confiar del todo en quien lo sirva.
+  quitar: Quitar
+  confirmarQuitar: "¿Quitar {0}?"
+  confirmarQuitarNota: Los paquetes que ya instalaste siguen instalados. Lo que se pierde es de dónde sacar sus actualizaciones.
+  agregado: Agregado desde la tienda
+detalle:
+  instalar: Instalar
+  quitar: Desinstalar
+  actualizar: Actualizar
+  abrir: Abrir
+  instalado: Instalado
+  version: Versión
+  tamano: Tamaño instalado
+  descarga: Descarga
+  licencia: Licencia
+  autor: Autor
+  empaquetador: Empaquetador
+  web: Sitio del proyecto
+  arquitectura: Arquitectura
+  dependencias: Dependencias
+  opcionales: Dependencias opcionales
+  requeridoPor: Lo necesitan
+  construido: Construido el
+  instaladoEl: Instalado el
+  capturas: Capturas
+  sinCapturas: Esta aplicación no publicó capturas.
+  votos: Votos
+  popularidad: Popularidad
+  actualizadoEl: Actualizado el
+  verReceta: Ver la receta
+  receta: La receta de este paquete
+  recetaNota: Esto es lo que se va a ejecutar en tu máquina para construirlo. Leelo antes de seguir.
+  compilarEInstalar: Compilar e instalar
+operacion:
+  previsualizacion: Lo que va a pasar
+  seInstalan: Se instalan
+  seQuitan: Se quitan
+  seActualizan: Se actualizan
+  descarga: Hay que bajar
+  espacioSuma: Ocupa
+  espacioResta: Libera
+  conflictos: No se puede seguir
+  confirmar: Confirmar
+  enCurso: Trabajando…
+  termino: Listo
+  fallo: No se pudo completar
+  verRegistro: Ver el detalle
+  ocultarRegistro: Ocultar el detalle
+  registro: Detalle de la operación
+  cancelar: Cancelar
+  soloUna: Ya hay una operación de paquetes en curso.
+fases:
+  resolviendo: Resolviendo dependencias
+  descargando: Descargando
+  verificando: Comprobando
+  instalando: Instalando
+  quitando: Quitando
+  terminando: Terminando

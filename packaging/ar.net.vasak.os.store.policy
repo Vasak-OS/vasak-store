@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE policyconfig PUBLIC
+ "-//freedesktop//DTD PolicyKit Policy Configuration 1.0//EN"
+ "http://www.freedesktop.org/standards/PolicyKit/1/policyconfig.dtd">
+<policyconfig>
+  <vendor>VasakOS</vendor>
+  <vendor_url>https://vasak.net.ar</vendor_url>
+
+  <!--
+    Son dos acciones y no una a propósito.
+
+    Instalar un paquete y agregar un repositorio parecen lo mismo —las dos
+    piden la contraseña— pero no lo son: instalar es una decisión sobre un
+    programa, y agregar un repositorio es entregarle al sistema una fuente de
+    paquetes para siempre, que va a firmar todo lo que venga después. Quien
+    administre una máquina puede querer permitir lo primero y no lo segundo, y
+    con una sola acción no podría.
+  -->
+  <action id="ar.net.vasak.os.store.gestionar-paquetes">
+    <description>Instalar, quitar y actualizar programas</description>
+    <description xml:lang="en">Install, remove and update software</description>
+    <message>Hace falta autenticarse para cambiar los programas instalados</message>
+    <message xml:lang="en">Authentication is required to change installed software</message>
+    <icon_name>system-software-install</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!--
+        `auth_admin_keep` y no `auth_admin`: una sesión de tienda son varias
+        operaciones seguidas —actualizar, instalar dos cosas, sacar una— y
+        pedir la contraseña en cada una enseña a teclearla sin leer el diálogo.
+        polkit la recuerda unos minutos y para esa sesión, no para siempre.
+      -->
+      <allow_active>auth_admin_keep</allow_active>
+    </defaults>
+  </action>
+
+  <action id="ar.net.vasak.os.store.gestionar-repositorios">
+    <description>Cambiar los repositorios de paquetes</description>
+    <description xml:lang="en">Change the package repositories</description>
+    <message>Hace falta autenticarse para cambiar de dónde salen los paquetes</message>
+    <message xml:lang="en">Authentication is required to change where packages come from</message>
+    <icon_name>system-software-install</icon_name>
+    <defaults>
+      <allow_any>auth_admin</allow_any>
+      <allow_inactive>auth_admin</allow_inactive>
+      <!--
+        Acá sin `_keep`: cada cambio de repositorio se autentica solo. Son
+        pocos y muy espaciados, así que no hay nada que ahorrar, y es la clase
+        de cambio que conviene que cueste.
+      -->
+      <allow_active>auth_admin</allow_active>
+    </defaults>
+  </action>
+</policyconfig>

@@ -1,0 +1,32 @@
+[package]
+name = "vasak-store-daemon"
+description = "El servicio de sistema que cambia paquetes en VasakOS"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "vasak-store-daemon"
+path = "src/main.rs"
+
+[dependencies]
+vasak-store-protocol.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+zbus.workspace = true
+tokio.workspace = true
+alpm.workspace = true
+# `pacman-conf` es quien sabe leer /etc/pacman.conf: resuelve los Include, los
+# SigLevel por repositorio y las réplicas. Este crate lo llama y parsea su
+# salida, que es estable y pensada para eso.
+pacmanconf = "3"
+# `alpm_with_conf`: arma el handle a partir de esa configuración. Sin él habría
+# que registrar cada base de datos con sus servidores y su nivel de firma a
+# mano, y equivocarse ahí es desactivar la comprobación de firmas sin notarlo.
+alpm-utils = "5"
+tracing.workspace = true
+tracing-subscriber.workspace = true
+
+[dev-dependencies]
+tempfile = "3"
