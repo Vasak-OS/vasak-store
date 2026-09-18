@@ -141,37 +141,87 @@ export const useOperaciones = defineStore('operaciones', () => {
 		soltar = [];
 	}
 
+	/** Si ya hay alguien juntando la cola y preguntando por ella. */
+	let atendiendoLaCola = false;
+
 	/**
 	 * Suma un paquete a lo que se va a instalar.
 	 *
-	 * Si no hay nada corriendo, pregunta en el acto por todo lo acumulado. Si hay
-	 * algo corriendo, se queda esperando y la tarjeta lo muestra como en cola.
+	 * Si no hay nada corriendo, pregunta por todo lo acumulado. Si hay algo
+	 * corriendo, se queda esperando y la tarjeta lo muestra como en cola.
 	 */
 	async function encolar(nombre: string) {
 		if (!cola.value.includes(nombre)) {
 			cola.value.push(nombre);
 		}
-		if (ocupado.value || preguntando.value) {
+		// Con una transacción en curso espera su turno: el candado de pacman
+		// admite un solo dueño, y la atiende `cerrar` cuando la de ahora termine.
+		if (enCurso.value || iniciando.value) {
 			return;
 		}
+		// Con un diálogo de quitar o de actualizar abierto tampoco. Esos no se
+		// juntan con la cola, y recalcular encima le cambiaría a la persona lo
+		// que está por confirmar.
+		if (preguntando.value && pendiente?.clase !== 'instalar') {
+			return;
+		}
+		if (atendiendoLaCola) {
+			return;
+		}
+		// Dos tarjetas apretadas una atrás de la otra caen en el mismo tick. Sin
+		// este respiro, la primera se llevaba la cola con un solo paquete y la
+		// segunda se encontraba el cálculo ya empezado: dos informes y dos
+		// transacciones para algo que pacman resuelve de una. Es un microtask y
+		// no una espera; no se nota.
+		await Promise.resolve();
 		await preguntarPorLaCola();
+	}
+
+	/** Si el informe que está por confirmarse es exactamente la cola. */
+	function elInformeCubreLaCola() {
+		return (
+			pendiente !== null &&
+			pendiente.clase === 'instalar' &&
+			pendiente.paquetes.length === cola.value.length &&
+			pendiente.paquetes.every((nombre) => cola.value.includes(nombre))
+		);
 	}
 
 	/** Calcula qué arrastra la cola entera y abre el diálogo. */
 	async function preguntarPorLaCola() {
-		if (cola.value.length === 0) {
+		if (atendiendoLaCola) {
 			return;
 		}
-		const paquetes = [...cola.value];
-		await preparar({
-			clase: 'instalar',
-			paquetes,
-			conHuerfanas: false,
-			// Los nombres, separados por coma. La barra los recorta si no
-			// entran; un «3 programas» obligaría a abrir el detalle para saber
-			// cuáles son justo cuando hace falta saberlo.
-			titulo: paquetes.join(', '),
-		});
+		atendiendoLaCola = true;
+		try {
+			// Mientras se calcula qué arrastra la cola —y mientras el diálogo
+			// está abierto— se pueden apretar más botones. Quedándose con la foto
+			// vieja, cada uno terminaba en su propio informe y su propia
+			// transacción, que es justo lo que la cola venía a evitar. Así que se
+			// recalcula hasta que lo previsualizado sea la cola entera.
+			while (
+				cola.value.length > 0 &&
+				// Si se confirmó mientras se recalculaba, lo que queda en la cola
+				// ya no se pregunta: espera a que la transacción termine, como
+				// cualquier cosa encolada con algo corriendo.
+				!enCurso.value &&
+				!iniciando.value &&
+				!elInformeCubreLaCola()
+			) {
+				const paquetes = [...cola.value];
+				await preparar({
+					clase: 'instalar',
+					paquetes,
+					conHuerfanas: false,
+					// Los nombres, separados por coma. La barra los recorta si no
+					// entran; un «3 programas» obligaría a abrir el detalle para
+					// saber cuáles son justo cuando hace falta saberlo.
+					titulo: paquetes.join(', '),
+				});
+			}
+		} finally {
+			atendiendoLaCola = false;
+		}
 	}
 
 	/**
@@ -203,7 +253,15 @@ export const useOperaciones = defineStore('operaciones', () => {
 		preparando.value = true;
 		pendiente = que;
 		try {
-			informe.value = await previsualizar(que.clase, que.paquetes, que.conHuerfanas);
+			const calculado = await previsualizar(que.clase, que.paquetes, que.conHuerfanas);
+			// Se pudo confirmar o cancelar mientras se calculaba. Abrir el
+			// diálogo ahora sería mostrarle a la persona el informe de algo que
+			// ya se está instalando, con un botón de confirmar que lo mandaría
+			// una segunda vez.
+			if (pendiente !== que) {
+				return;
+			}
+			informe.value = calculado;
 			preguntando.value = true;
 		} catch (error) {
 			falla.value = String(error);
