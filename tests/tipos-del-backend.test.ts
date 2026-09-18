@@ -55,6 +55,8 @@ interface Campo {
 	nombre: string;
 	/** Si puede no venir. Un `campo?: T` de TypeScript. */
 	opcional: boolean;
+	/** Si puede venir en nulo. Un `campo: T | null` de TypeScript. */
+	nulo: boolean;
 }
 
 async function leer(ruta: string) {
@@ -98,11 +100,16 @@ function camposDeRust(ruta: string, nombre: string): Campo[] {
 			campos.push(...camposDeRust(ruta, tipo.trim()));
 			continue;
 		}
+		// Las dos caras de un `Option`, que no son la misma. Con
+		// `skip_serializing_if` el campo **desaparece** del JSON; sin eso viaja
+		// como `null`. Del otro lado son `campo?: T` y `campo: T | null`, y
+		// confundirlos es lo que hace que algo sea `undefined` donde el código
+		// compara contra `null`.
+		const opcional = atributo.includes('skip_serializing_if');
 		campos.push({
 			nombre: campo,
-			// Sólo el que serde omite cuando es `None`. Un `Option` sin eso
-			// viaja como `null`, que del otro lado es `T | null` y no `T?`.
-			opcional: atributo.includes('skip_serializing_if'),
+			opcional,
+			nulo: tipo.trim().startsWith('Option<') && !opcional,
 		});
 	}
 	return campos;
@@ -115,10 +122,13 @@ function camposDeTypeScript(nombre: string): Campo[] {
 
 	const heredados = declaracion?.[1] ? camposDeTypeScript(declaracion[1]) : [];
 	const bloque = cuerpo(api, declaracion?.[0] ?? '');
-	const propios = [...(bloque?.matchAll(/^\t(\w+)(\??):/gm) ?? [])].map(([, campo, signo]) => ({
-		nombre: campo,
-		opcional: signo === '?',
-	}));
+	const propios = [...(bloque?.matchAll(/^\t(\w+)(\??):\s*([^;\n]+);/gm) ?? [])].map(
+		([, campo, signo, tipo]) => ({
+			nombre: campo,
+			opcional: signo === '?',
+			nulo: /\bnull\b/.test(tipo),
+		})
+	);
 	return [...heredados, ...propios];
 }
 
@@ -129,6 +139,13 @@ function porNombre(campos: Campo[]) {
 function losOpcionales(campos: Campo[]) {
 	return campos
 		.filter((campo) => campo.opcional)
+		.map((campo) => campo.nombre)
+		.sort();
+}
+
+function losNulos(campos: Campo[]) {
+	return campos
+		.filter((campo) => campo.nulo)
 		.map((campo) => campo.nombre)
 		.sort();
 }
@@ -157,6 +174,16 @@ describe('las formas del backend', () => {
 				// ventana de alguien.
 				expect(losOpcionales(camposDeTypeScript(par.ts))).toEqual(
 					losOpcionales(camposDeRust(par.rust, par.struct))
+				);
+			});
+
+			test('y los mismos pueden venir en nulo', () => {
+				// La otra mitad, y sin ella la de arriba no dice nada: un `Option`
+				// sin `skip_serializing_if` y un `T` pelado de TypeScript dan los
+				// dos «no opcional», así que sin mirar el `| null` el control
+				// pasaba sobre un tipo que rechaza el nulo que Rust manda.
+				expect(losNulos(camposDeTypeScript(par.ts))).toEqual(
+					losNulos(camposDeRust(par.rust, par.struct))
 				);
 			});
 		});
