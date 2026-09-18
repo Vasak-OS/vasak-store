@@ -1,14 +1,29 @@
 [Desktop Entry]
 Type=Application
+Version=1.0
 Name=Store
 Name[es]=Tienda
+GenericName=Software Store
+GenericName[es]=Tienda de programas
 Comment=Install and update software
 Comment[es]=Instalar y actualizar programas
+# El nombre del binario tal cual lo instala el paquete, que es el `productName`
+# de `tauri.conf.json`. Si alguien renombra el programa y se olvida de acá, el
+# lanzador del menú deja de abrir nada y no falla nada al compilar. Hay una
+# prueba que ata las dos cosas.
 Exec=vasak-store
+# El PNG que el empaquetador de Tauri instala en el tema hicolor sale de
+# `bundle.icon` y se llama como el `productName`, así que el nombre de acá es
+# ése y no otro. No lleva ruta: así lo resuelve el tema de iconos y un tema que
+# traiga el suyo lo puede reemplazar.
 Icon=vasak-store
 Terminal=false
 Categories=System;PackageManager;
-Keywords=software;package;install;update;
+Keywords=software;package;install;update;store;
 Keywords[es]=programas;paquetes;instalar;actualizar;tienda;
+# Lo que hace que el escritorio pueda unir esta entrada con la ventana abierta:
+# tiene que ser el `identifier` de `tauri.conf.json`. Decía `vasak-store`, que
+# no es el identificador de nada, así que el lanzador mostraba la tienda como si
+# no estuviera corriendo aunque lo estuviera.
+StartupWMClass=ar.net.vasak.store
 StartupNotify=true
-StartupWMClass=vasak-store
