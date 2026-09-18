@@ -13,7 +13,22 @@ import { invoke } from '@tauri-apps/api/core';
 /** De dónde sale un programa. Es la jerarquía de confianza de la distribución. */
 export type Origen = 'repositorio' | 'aur' | 'appimage' | 'local';
 
-export type Icono = { tipo: 'tema'; valor: string } | { tipo: 'archivo'; valor: string };
+/**
+ * Cómo dibujar el ícono de algo.
+ *
+ * Las dos fuentes juntas y en ese orden, no una u otra. El tema del escritorio
+ * se prefiere siempre —es el que la persona eligió y el que cambia cuando
+ * cambia de tema—; el archivo del catálogo es el respaldo para lo que el tema
+ * no tenga. Los nombres del tema son varios porque los temas no se ponen de
+ * acuerdo: unos usan el `Icon=` del `.desktop`, otros el identificador de
+ * AppStream y unos cuantos el nombre del paquete.
+ */
+export interface Icono {
+	/** Nombres a probar en el tema del sistema, del más probable al menos. */
+	tema: string[];
+	/** La ruta del PNG en la caché, si el catálogo traía uno. */
+	archivo?: string;
+}
 
 export interface Tarjeta {
 	nombre: string;
