@@ -444,11 +444,23 @@ fn descubrir(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Descubrimient
         .map(|f| (sorteo(&f.paquete, dia), f))
         .collect();
     sorteables.sort_by_key(|(n, _)| *n);
+    // Las destacadas llevan su captura, que es lo que hace que la fila de
+    // arriba se vea como una portada y no como una lista más. Va la URL: acá no
+    // hay red, la baja el comando.
     let seleccion = sorteables
         .iter()
-        .filter_map(|(_, f)| buscar_paquete(alpm, &f.paquete))
+        .filter_map(|(sorteo, f)| Some((*sorteo, f, buscar_paquete(alpm, &f.paquete)?)))
         .take(CUANTAS_DESTACADAS)
-        .map(|p| tarjeta(alpm, catalogo, cache, p, false))
+        .map(|(_, ficha, paquete)| {
+            let mut t = tarjeta(alpm, catalogo, cache, paquete, false);
+            t.captura = ficha
+                .capturas
+                .iter()
+                .find(|c| c.principal)
+                .or_else(|| ficha.capturas.first())
+                .map(|c| c.url.clone());
+            t
+        })
         .collect();
 
     Descubrimiento {
@@ -583,6 +595,7 @@ fn tarjeta(
         votos: None,
         popularidad: None,
         actualizado: Some(paquete.build_date()),
+        captura: None,
     }
 }
 

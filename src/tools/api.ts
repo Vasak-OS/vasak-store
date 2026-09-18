@@ -30,6 +30,13 @@ export interface Tarjeta {
 	votos?: number;
 	popularidad?: number;
 	actualizado?: number;
+	/**
+	 * La ruta local de una captura, para la tarjeta grande de la portada.
+	 *
+	 * Sólo la llevan las destacadas de Descubrir: en una lista de sesenta
+	 * resultados serían sesenta descargas para adornar.
+	 */
+	captura?: string;
 }
 
 export interface Captura {

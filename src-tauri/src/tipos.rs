@@ -80,6 +80,14 @@ pub struct Tarjeta {
     /// Cuándo se actualizó por última vez, en segundos desde época.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub actualizado: Option<i64>,
+    /// Una captura para la tarjeta grande de la portada.
+    ///
+    /// Sale del lector como **URL** y la reemplaza por una ruta local el comando
+    /// que la baja: el hilo de lectura no tiene red ni con qué esperarla. Sólo
+    /// se llena para la fila destacada de Descubrir; en una lista de sesenta
+    /// resultados serían sesenta descargas para adornar.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub captura: Option<String>,
 }
 
 /// La ficha entera de un programa.

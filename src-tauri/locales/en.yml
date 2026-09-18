@@ -66,6 +66,7 @@ descubrir:
   novedadesNota: By package build date, which is the figure the machine actually has.
   vacio: No application catalogue is installed.
   vacioNota: The archlinux-appstream-data package is missing. Without it the store still searches and installs, but it cannot show names, icons or screenshots.
+  todo: Everything
 instaladas:
   titulo: Installed
   filtro: Filter installed software
@@ -167,3 +168,11 @@ fases:
   instalando: Installing
   quitando: Removing
   terminando: Finishing
+tarjeta:
+  instalar: Install
+  actualizar: Update
+  instalada: Installed
+  receta: View the recipe
+barraLateral:
+  plegar: Collapse the sidebar
+  desplegar: Expand the sidebar

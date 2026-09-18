@@ -107,6 +107,7 @@ fn tarjeta(paquete: raur::Package) -> Tarjeta {
         votos: Some(paquete.num_votes),
         popularidad: Some(paquete.popularity),
         actualizado: Some(paquete.last_modified),
+        captura: None,
     }
 }
 
