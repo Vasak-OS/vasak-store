@@ -35,6 +35,7 @@ import {
 	previsualizar,
 	quitar,
 	recargar,
+	sincronizar as sincronizarRepositorios,
 } from '@/tools/api';
 
 /** Cuántas líneas de registro se guardan. */
@@ -344,6 +345,26 @@ export const useOperaciones = defineStore('operaciones', () => {
 	}
 
 	/**
+	 * Bajar las bases de datos de los repositorios.
+	 *
+	 * No pasa por la cola ni por la previsualización: no instala ni saca nada,
+	 * así que no hay nada que juntar ni nada que arrastre. Pero es una operación
+	 * del demonio igual —escribe en `/var/lib/pacman/sync` y pide autorización—,
+	 * y por eso va por el mismo camino que las demás y aparece en el panel con
+	 * su progreso.
+	 *
+	 * Existe porque `empezar` no se expone: es la pieza con la que se arma una
+	 * operación, no una que la pantalla deba armar por su cuenta. La de
+	 * Actualizaciones la llamaba igual, y como un store de pinia no expone lo
+	 * que no devuelve, ahí no había ninguna función: apretar «Comprobar de
+	 * nuevo» tiraba un `TypeError` que el `catch` de la pantalla se comía, y el
+	 * botón no hacía nada. Sin ruido.
+	 */
+	async function comprobarActualizaciones(comoSeLlama: string) {
+		await empezar(comoSeLlama, sincronizarRepositorios);
+	}
+
+	/**
 	 * Marca que arrancó una operación.
 	 *
 	 * El identificador queda registrado **antes** de que puedan llegar eventos:
@@ -435,6 +456,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		confirmar,
 		cancelar,
 		compilarDelAur,
+		comprobarActualizaciones,
 		limpiar,
 	};
 });

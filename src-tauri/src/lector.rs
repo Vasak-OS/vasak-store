@@ -11,8 +11,9 @@
 //! catálogo de AppStream —que son caros de abrir— se abren una sola vez y se
 //! quedan acá.
 
+use std::cmp::Reverse;
 use std::collections::{HashMap, HashSet};
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use alpm::Alpm;
 use tokio::sync::mpsc::{unbounded_channel, UnboundedSender};
@@ -178,7 +179,7 @@ fn abrir() -> Option<Alpm> {
     alpm_utils::alpm_with_conf(&conf).ok()
 }
 
-fn atender(alpm: &mut Option<Alpm>, catalogo: &Catalogo, cache: &PathBuf, consulta: Consulta) {
+fn atender(alpm: &mut Option<Alpm>, catalogo: &Catalogo, cache: &Path, consulta: Consulta) {
     match consulta {
         Consulta::Recargar { responder } => {
             *alpm = abrir();
@@ -285,7 +286,7 @@ pub fn puntaje(consulta: &str, nombre: &str, resumen: &str) -> Option<u32> {
 /// y la biblioteca que lo acompaña casi nunca.
 const EXTRA_POR_FICHA: u32 = 50;
 
-fn buscar(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str, limite: usize) -> Pagina {
+fn buscar(alpm: &Alpm, catalogo: &Catalogo, cache: &Path, texto: &str, limite: usize) -> Pagina {
     let mut puntuados: Vec<(u32, &alpm::Package)> = Vec::new();
 
     for db in alpm.syncdbs() {
@@ -322,7 +323,7 @@ fn buscar(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str, limite
     Pagina { resultados, total }
 }
 
-fn instaladas(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str) -> Pagina {
+fn instaladas(alpm: &Alpm, catalogo: &Catalogo, cache: &Path, texto: &str) -> Pagina {
     let mut lista: Vec<Tarjeta> = alpm
         .localdb()
         .pkgs()
@@ -330,7 +331,7 @@ fn instaladas(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str) ->
         .filter(|p| puntaje(texto, p.name(), p.desc().unwrap_or_default()).is_some())
         .map(|p| tarjeta(alpm, catalogo, cache, p, true))
         .collect();
-    lista.sort_by(|a, b| a.titulo.to_lowercase().cmp(&b.titulo.to_lowercase()));
+    lista.sort_by_key(|tarjeta| tarjeta.titulo.to_lowercase());
     let total = lista.len();
     Pagina {
         resultados: lista,
@@ -338,7 +339,7 @@ fn instaladas(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str) ->
     }
 }
 
-fn actualizaciones(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Vec<Tarjeta> {
+fn actualizaciones(alpm: &Alpm, catalogo: &Catalogo, cache: &Path) -> Vec<Tarjeta> {
     let mut lista: Vec<Tarjeta> = alpm
         .localdb()
         .pkgs()
@@ -351,14 +352,14 @@ fn actualizaciones(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Vec<Tar
             Some(t)
         })
         .collect();
-    lista.sort_by(|a, b| a.titulo.to_lowercase().cmp(&b.titulo.to_lowercase()));
+    lista.sort_by_key(|tarjeta| tarjeta.titulo.to_lowercase());
     lista
 }
 
 fn de_categoria(
     alpm: &Alpm,
     catalogo: &Catalogo,
-    cache: &PathBuf,
+    cache: &Path,
     categoria: &str,
     limite: usize,
 ) -> Pagina {
@@ -397,7 +398,7 @@ fn buscar_paquete<'a>(alpm: &'a Alpm, nombre: &str) -> Option<&'a alpm::Package>
         .or_else(|| alpm.localdb().pkg(nombre).ok())
 }
 
-fn descubrir(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Descubrimiento {
+fn descubrir(alpm: &Alpm, catalogo: &Catalogo, cache: &Path) -> Descubrimiento {
     // Las categorías, con cuántas aplicaciones tiene cada una.
     let mut cuenta: HashMap<&str, usize> = HashMap::new();
     for ficha in catalogo.todas() {
@@ -421,7 +422,7 @@ fn descubrir(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Descubrimient
         .into_iter()
         .filter_map(|f| Some((buscar_paquete(alpm, &f.paquete)?.build_date(), f)))
         .collect();
-    con_fecha.sort_by(|a, b| b.0.cmp(&a.0));
+    con_fecha.sort_by_key(|(construido, _)| Reverse(*construido));
     let novedades = con_fecha
         .iter()
         .take(CUANTAS_DESTACADAS)
@@ -532,7 +533,7 @@ fn icono_de_categoria(id: &str) -> &'static str {
 fn tarjeta(
     alpm: &Alpm,
     catalogo: &Catalogo,
-    cache: &PathBuf,
+    cache: &Path,
     paquete: &alpm::Package,
     es_local: bool,
 ) -> Tarjeta {
@@ -611,7 +612,7 @@ fn tarjeta(
 /// `.desktop` lo usan los temas modernos, y el nombre del paquete acierta en
 /// bastantes casos que los otros dos no cubren. Se prueban en ese orden y el
 /// último es el genérico, que al menos no deja un hueco.
-fn icono(ficha: Option<&Ficha>, paquete: &str, cache: &PathBuf) -> Icono {
+fn icono(ficha: Option<&Ficha>, paquete: &str, cache: &Path) -> Icono {
     let mut tema: Vec<String> = Vec::new();
 
     if let Some(ficha) = ficha {
@@ -639,7 +640,7 @@ fn icono(ficha: Option<&Ficha>, paquete: &str, cache: &PathBuf) -> Icono {
 fn detalle(
     alpm: &Alpm,
     catalogo: &Catalogo,
-    cache: &PathBuf,
+    cache: &Path,
     nombre: &str,
 ) -> Option<(Detalle, Vec<catalogo::Captura>)> {
     let paquete = buscar_paquete(alpm, nombre)?;

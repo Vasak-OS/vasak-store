@@ -16,7 +16,7 @@ import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
-import { actualizaciones as pedirActualizaciones, sincronizar, type Tarjeta } from '@/tools/api';
+import { actualizaciones as pedirActualizaciones, type Tarjeta } from '@/tools/api';
 import { claveSegunCantidad, interpolar } from '@/tools/interpolar';
 
 const { t } = useI18n();
@@ -44,13 +44,10 @@ async function cargar() {
 	}
 }
 
-async function comprobar() {
-	try {
-		await operaciones.empezar(t('actualizaciones.sincronizar'), sincronizar);
-	} catch {
-		// El error queda en el panel de abajo, que es donde se mira.
-	}
-}
+// El error no se atrapa acá: el store lo deja en `operaciones.falla` y el panel
+// de abajo lo muestra. Un `catch` vacío alrededor de esto es lo que escondió que
+// la función que se llamaba no existiera.
+const comprobar = () => operaciones.comprobarActualizaciones(t('actualizaciones.sincronizar'));
 
 onMounted(cargar);
 // Al terminar cualquier operación, lo que se puede actualizar cambió.

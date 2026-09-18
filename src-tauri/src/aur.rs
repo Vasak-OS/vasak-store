@@ -16,6 +16,7 @@
 //! sin dar manera de mirarlo es un cartel. `receta` trae el PKGBUILD para que la
 //! ventana lo muestre antes de compilar nada.
 
+use std::cmp::Reverse;
 use std::path::{Path, PathBuf};
 use std::process::Stdio;
 
@@ -55,7 +56,7 @@ pub async fn buscar(consulta: &str) -> Result<Vec<Tarjeta>, String> {
     // Por votos: en el AUR hay muchos paquetes con el mismo nombre más un
     // sufijo —`-git`, `-bin`, `-beta`— y los votos son lo más parecido a «cuál
     // usa la gente» que la RPC ofrece.
-    tarjetas.sort_by(|a, b| b.votos.cmp(&a.votos));
+    tarjetas.sort_by_key(|tarjeta| Reverse(tarjeta.votos));
     Ok(tarjetas)
 }
 
@@ -227,7 +228,7 @@ pub async fn planificar(
 /// Saca la restricción de versión de una dependencia: `glibc>=2.38` -> `glibc`.
 pub fn sin_version(dependencia: &str) -> &str {
     let corte = dependencia
-        .find(|c| matches!(c, '>' | '<' | '=' | ':'))
+        .find(['>', '<', '=', ':'])
         .unwrap_or(dependencia.len());
     dependencia[..corte].trim()
 }

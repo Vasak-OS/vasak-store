@@ -1,11 +1,11 @@
 {
   "name": "vasak-store",
   "private": true,
-  "version": "0.3.6",
+  "version": "0.3.7",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
-    "build": "bunx --bun vue-tsc --noEmit && bunx --bun vite build",
+    "build": "bunx vue-tsc --noEmit && bunx --bun vite build",
     "preview": "bunx --bun vite preview",
     "tauri": "tauri",
     "lint": "bunx --bun biome check .",
