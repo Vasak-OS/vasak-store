@@ -111,12 +111,15 @@ export function ponerEnElTema(nombre: string, fuente: string | (() => Promise<st
 	temaDeIconos.set(nombre, fuente);
 }
 
-/** Lo que el tema no tiene: el plugin lanza, y el componente prueba el siguiente. */
+/**
+ * Lo que el tema no tiene vuelve como cadena vacía, no como error.
+ *
+ * Es lo que hace el plugin de verdad: atrapa lo suyo, lo escribe en la consola
+ * y devuelve `''`. Que el doble lanzara era más estricto que la realidad y
+ * hacía fallar a componentes que no tienen por qué atrapar nada.
+ */
 export async function getIconSource(nombre: string) {
-	const puesto = temaDeIconos.get(nombre);
-	if (puesto === undefined) {
-		throw new Error(`el tema no tiene «${nombre}»`);
-	}
+	const puesto = temaDeIconos.get(nombre) ?? '';
 	return typeof puesto === 'function' ? await puesto() : puesto;
 }
 
