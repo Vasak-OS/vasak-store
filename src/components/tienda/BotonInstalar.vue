@@ -5,9 +5,12 @@
  * En píldora y con el color de marca en claro, como el de una tienda: es la
  * acción que la tarjeta ofrece y tiene que verse antes que el resto del texto.
  *
- * Cinco estados, y los cinco dicen algo distinto:
+ * Seis estados, y los seis dicen algo distinto:
  *
  * - no instalado → **Instalar**, en primer plano;
+ * - ya apretado, esperando su turno → **En cola**, apagado: el candado de
+ *   pacman admite un solo dueño, así que lo que se apreta mientras algo corre
+ *   espera en vez de fallar;
  * - hay versión nueva → **Actualizar**, con el color de aviso;
  * - instalado y al día → **Instalado**, apagado y sin acción, que informa sin
  *   ofrecer nada;
@@ -27,13 +30,18 @@ import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { computed } from 'vue';
 import type { Tarjeta } from '@/tools/api';
 
-const props = defineProps<{ app: Tarjeta; ocupado: boolean }>();
+const props = withDefaults(defineProps<{ app: Tarjeta; ocupado: boolean; enCola?: boolean }>(), {
+	enCola: false,
+});
 const emit = defineEmits<{ instalar: []; actualizar: []; receta: [] }>();
 const { t } = useI18n();
 
 const estado = computed(() => {
 	if (props.app.origen === 'aur') {
 		return 'receta';
+	}
+	if (props.enCola) {
+		return 'enCola';
 	}
 	if (props.app.actualizable) {
 		return 'actualizar';
@@ -59,13 +67,13 @@ function apretar() {
 <template>
   <button
     type="button"
-    :disabled="estado === 'instalada' || (ocupado && estado !== 'receta')"
+    :disabled="estado === 'instalada' || estado === 'enCola' || (ocupado && estado !== 'receta')"
     class="shrink-0 rounded-full px-4 py-1.5 font-semibold text-xs transition-all disabled:cursor-not-allowed disabled:opacity-60"
     :class="{
       'bg-primary/15 text-primary hover:bg-primary hover:text-tx-on-primary': estado === 'instalar',
       'bg-status-warning/20 text-status-warning hover:bg-status-warning hover:text-tx-on-primary':
         estado === 'actualizar',
-      'bg-ui-surface text-tx-muted': estado === 'instalada',
+      'bg-ui-surface text-tx-muted': estado === 'instalada' || estado === 'enCola',
       'bg-status-warning/15 text-status-warning hover:bg-status-warning hover:text-tx-on-primary':
         estado === 'receta',
     }"

@@ -3,7 +3,13 @@
  * El botón de una acción.
  *
  * Tres tonos: el principal para lo que la pantalla propone, el suave para lo
- * secundario y el de peligro para lo que saca cosas. Deshabilitado cuando hay
+ * secundario y el de peligro para lo que saca cosas.
+ *
+ * El radio es `rounded-corner`, el mismo que las tarjetas y los elementos de la
+ * barra lateral, y el mismo que sale de lo que la persona configuró en el
+ * escritorio. Estaba en `rounded-corner-sm`, que es el de los chips y las
+ * insignias: al lado de cualquier otra cosa de la ventana se notaba que no era
+ * de la misma familia. Deshabilitado cuando hay
  * una operación en curso, porque el demonio rechazaría la segunda de todos
  * modos y es mejor que el botón lo diga antes que un error después.
  */
@@ -21,7 +27,7 @@ withDefaults(
     type="button"
     :disabled="deshabilitado"
     :title="titulo"
-    class="rounded-corner-sm border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+    class="rounded-corner border px-3 py-1.5 text-sm transition-colors disabled:cursor-not-allowed disabled:opacity-50"
     :class="{
       'border-transparent bg-primary text-tx-on-primary hover:brightness-110': tono === 'principal',
       'border-ui-border-strong bg-ui-surface/60 hover:bg-ui-surface': tono === 'suave',

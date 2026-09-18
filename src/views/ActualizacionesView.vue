@@ -14,7 +14,6 @@ import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
-import { useOperacion } from '@/composables/useOperacion';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
 import { actualizaciones as pedirActualizaciones, sincronizar, type Tarjeta } from '@/tools/api';
@@ -23,7 +22,6 @@ import { claveSegunCantidad, interpolar } from '@/tools/interpolar';
 const { t } = useI18n();
 const operaciones = useOperaciones();
 const tienda = useTienda();
-const operacion = useOperacion();
 
 const lista = ref<Tarjeta[]>([]);
 const cargando = ref(true);
@@ -79,14 +77,14 @@ watch(
         </BotonAccion>
         <BotonAccion
           tono="principal"
-          :deshabilitado="lista.length === 0 || !!operaciones.enCurso || operacion.preparando.value"
-          @click="operacion.pedir('actualizar', [], t('actualizaciones.actualizarTodo'))">
+          :deshabilitado="lista.length === 0 || !!operaciones.enCurso || operaciones.preparando"
+          @click="operaciones.pedir('actualizar', [], t('actualizaciones.actualizarTodo'))">
           {{ t('actualizaciones.actualizarTodo') }}
         </BotonAccion>
       </div>
     </div>
 
-    <p v-if="operacion.falla.value" class="text-sm text-status-error">{{ operacion.falla.value }}</p>
+    <p v-if="operaciones.falla" class="text-sm text-status-error">{{ operaciones.falla }}</p>
 
     <IndicadorDeCarga v-if="cargando" />
     <EstadoVacio
@@ -116,18 +114,18 @@ watch(
           </span>
         </span>
         <BotonAccion
-          :deshabilitado="!!operaciones.enCurso || operacion.preparando.value"
-          @click="operacion.pedir('instalar', [app.nombre], app.titulo)">
+          :deshabilitado="!!operaciones.enCurso || operaciones.preparando"
+          @click="operaciones.pedir('instalar', [app.nombre], app.titulo)">
           {{ t('actualizaciones.actualizar') }}
         </BotonAccion>
       </li>
     </ul>
 
     <DialogoDePrevisualizacion
-      :abierto="operacion.abierto.value"
-      :informe="operacion.informe.value"
+      :abierto="operaciones.preguntando"
+      :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"
-      @cerrar="operacion.cancelar"
-      @confirmar="operacion.confirmar" />
+      @cerrar="operaciones.cancelar"
+      @confirmar="operaciones.confirmar" />
   </div>
 </template>

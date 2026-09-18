@@ -14,6 +14,7 @@ import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
 import ModalBase from '@/components/ui/ModalBase.vue';
+import { useAjustes } from '@/stores/ajustes';
 import {
 	agregarRepositorio,
 	cambiarRepositorio,
@@ -24,6 +25,7 @@ import {
 import { interpolar } from '@/tools/interpolar';
 
 const { t } = useI18n();
+const ajustes = useAjustes();
 
 const lista = ref<Repositorio[]>([]);
 const cargando = ref(true);
@@ -93,7 +95,9 @@ async function quitar(repositorio: Repositorio) {
 	await cargar();
 }
 
-onMounted(cargar);
+onMounted(async () => {
+	await Promise.all([cargar(), ajustes.cargado ? Promise.resolve() : ajustes.cargar()]);
+});
 </script>
 
 <template>
@@ -105,7 +109,35 @@ onMounted(cargar);
       </BotonAccion>
     </div>
     <p class="text-tx-muted text-xs leading-relaxed">{{ t('repositorios.explicacion') }}</p>
-    <p v-if="falla" class="text-sm text-status-error">{{ falla }}</p>
+    <p v-if="falla || ajustes.falla" class="text-sm text-status-error">
+      {{ falla || ajustes.falla }}
+    </p>
+
+    <!-- El AUR va acá y no al lado del buscador, que es donde estaba. Prender
+         el AUR no es una forma de buscar: es agregar una fuente de paquetes,
+         con otro nivel de confianza, y eso es el tema de esta pantalla. Queda
+         puesto entre sesiones, como los demás. -->
+    <section
+      class="flex items-start gap-3 rounded-corner border border-status-warning/50 bg-status-warning/5 p-3">
+      <!-- Deshabilitado hasta saber cómo estaba: antes de leer los ajustes el
+           conmutador se dibuja apagado, y tocarlo ahí guardaría «encendido»
+           sobre un estado que todavía no se conocía. -->
+      <InterruptorDeOpcion
+        :valor="ajustes.aur"
+        :deshabilitado="!ajustes.cargado"
+        :etiqueta="t('origen.aur')"
+        @cambiar="(valor: boolean) => ajustes.cambiarAur(valor)" />
+      <div class="flex min-w-0 flex-1 flex-col gap-0.5">
+        <div class="flex items-center gap-2">
+          <span class="font-medium text-sm">{{ t('origen.aur') }}</span>
+          <span
+            class="rounded-corner-sm border border-status-warning px-1.5 py-0.5 text-status-warning text-xs">
+            {{ t('repositorios.sinRevisar') }}
+          </span>
+        </div>
+        <p class="text-tx-muted text-xs leading-relaxed">{{ t('repositorios.aurNota') }}</p>
+      </div>
+    </section>
 
     <IndicadorDeCarga v-if="cargando" />
     <EstadoVacio

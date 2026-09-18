@@ -91,8 +91,12 @@ describe('la portada', () => {
 	test('instalar desde la tarjeta sigue pasando por la previsualización', () => {
 		// El botón en la tarjeta ahorra entrar a la ficha; lo que no se saltea
 		// nunca es ver qué arrastra la operación.
-		expect(portada).toContain("operacion.pedir('instalar'");
+		expect(portada).toContain('operaciones.encolar(app.nombre)');
 		expect(portada).toContain('DialogoDePrevisualizacion');
+	});
+
+	test('la tarjeta muestra lo que está esperando su turno', () => {
+		expect(portada).toContain('operaciones.enCola(app.nombre)');
 	});
 });
 

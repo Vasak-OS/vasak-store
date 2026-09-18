@@ -103,6 +103,12 @@ export interface Repositorio {
 	protegido: boolean;
 }
 
+/** Lo que la tienda recuerda entre sesiones. */
+export interface Ajustes {
+	/** Si los resultados del AUR se incluyen al buscar. */
+	aur: boolean;
+}
+
 export interface AppImage {
 	id: string;
 	titulo: string;
@@ -179,6 +185,10 @@ export const agregarRepositorio = (nombre: string, servidor: string, siglevel: s
 	invoke<void>('agregar_repositorio', { nombre, servidor, siglevel });
 
 export const quitarRepositorio = (nombre: string) => invoke<void>('quitar_repositorio', { nombre });
+
+export const ajustes = () => invoke<Ajustes>('ajustes');
+
+export const guardarAur = (activo: boolean) => invoke<Ajustes>('guardar_aur', { activo });
 
 export const appimages = () => invoke<AppImage[]>('appimages');
 

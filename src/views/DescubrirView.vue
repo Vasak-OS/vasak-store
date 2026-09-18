@@ -32,7 +32,7 @@ import TarjetaGrande from '@/components/tienda/TarjetaGrande.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
-import { useOperacion } from '@/composables/useOperacion';
+import { useAjustes } from '@/stores/ajustes';
 import { useOperaciones } from '@/stores/operaciones';
 import {
 	buscar as buscarEnLaTienda,
@@ -47,7 +47,7 @@ const { t } = useI18n();
 const ruta = useRoute();
 const router = useRouter();
 const operaciones = useOperaciones();
-const operacion = useOperacion();
+const ajustes = useAjustes();
 
 /** El identificador de «todo», que no es una categoría del catálogo. */
 const PORTADA = '';
@@ -56,13 +56,12 @@ const portada = ref<Descubrimiento | null>(null);
 const listado = ref<Tarjeta[]>([]);
 const cargando = ref(true);
 const falla = ref('');
-const conAur = ref(false);
 
 const categoria = computed(() => String(ruta.query.cat ?? PORTADA));
 const texto = computed(() => String(ruta.query.q ?? ''));
 const buscando = computed(() => texto.value.trim().length > 0);
 
-const ocupado = computed(() => operaciones.enCurso !== null || operacion.preparando.value);
+const ocupado = computed(() => operaciones.ocupado);
 
 /** Cada búsqueda lleva su número, para descartar respuestas que llegan tarde. */
 let ultima = 0;
@@ -73,7 +72,7 @@ async function cargar() {
 	falla.value = '';
 	try {
 		if (buscando.value) {
-			const pagina = await buscarEnLaTienda(texto.value, conAur.value);
+			const pagina = await buscarEnLaTienda(texto.value, ajustes.aur);
 			if (mia !== ultima) return;
 			listado.value = pagina.resultados;
 		} else if (categoria.value !== PORTADA) {
@@ -122,6 +121,14 @@ function cuantas(n: number) {
 }
 
 onMounted(async () => {
+	// Los ajustes primero, y **antes de empezar a observar**: leer el archivo
+	// puede cambiar `ajustes.aur`, y con el observador ya puesto ese cambio
+	// dispara una carga idéntica a la que viene abajo. Con el AUR encendido eso
+	// son dos consultas a la red por abrir la pantalla.
+	if (!ajustes.cargado) {
+		await ajustes.cargar();
+	}
+
 	// La portada se pide siempre en el primer arranque aunque se entre con una
 	// categoría puesta: de ahí salen las categorías de la barra lateral.
 	if (categoria.value !== PORTADA || buscando.value) {
@@ -132,9 +139,11 @@ onMounted(async () => {
 			.catch(() => {});
 	}
 	await cargar();
-});
 
-watch([categoria, texto, conAur], cargar);
+	// El AUR también: encenderlo desde Repositorios tiene que cambiar lo que se
+	// ve acá sin volver a escribir la búsqueda.
+	watch([categoria, texto, () => ajustes.aur], cargar);
+});
 watch(
 	() => operaciones.enCurso,
 	(ahora, antes) => {
@@ -151,9 +160,7 @@ watch(
       <template #busqueda>
         <BarraDeBusqueda
           :valor="texto"
-          :aur="conAur"
-          @buscar="(q: string) => ir(q ? '' : categoria, q)"
-          @cambiar-aur="(valor: boolean) => (conAur = valor)" />
+          @buscar="(q: string) => ir(q ? '' : categoria, q)" />
       </template>
 
       <template #default="{ plegada }">
@@ -206,9 +213,10 @@ watch(
               :app="app"
               con-captura
               :ocupado="ocupado"
+              :en-cola="operaciones.enCola(app.nombre)"
               @abrir="abrir(app)"
-              @instalar="operacion.pedir('instalar', [app.nombre], app.titulo)"
-              @actualizar="operacion.pedir('instalar', [app.nombre], app.titulo)" />
+              @instalar="operaciones.encolar(app.nombre)"
+              @actualizar="operaciones.encolar(app.nombre)" />
           </div>
         </section>
 
@@ -225,9 +233,10 @@ watch(
               :key="app.nombre"
               :app="app"
               :ocupado="ocupado"
+              :en-cola="operaciones.enCola(app.nombre)"
               @abrir="abrir(app)"
-              @instalar="operacion.pedir('instalar', [app.nombre], app.titulo)"
-              @actualizar="operacion.pedir('instalar', [app.nombre], app.titulo)" />
+              @instalar="operaciones.encolar(app.nombre)"
+              @actualizar="operaciones.encolar(app.nombre)" />
           </div>
         </section>
       </div>
@@ -263,22 +272,23 @@ watch(
             :key="`${app.origen}:${app.nombre}`"
             :app="app"
             :ocupado="ocupado"
+            :en-cola="operaciones.enCola(app.nombre)"
             @abrir="abrir(app)"
-            @instalar="operacion.pedir('instalar', [app.nombre], app.titulo)"
-            @actualizar="operacion.pedir('instalar', [app.nombre], app.titulo)" />
+            @instalar="operaciones.encolar(app.nombre)"
+            @actualizar="operaciones.encolar(app.nombre)" />
         </div>
       </div>
 
-      <p v-if="operacion.falla.value" class="mt-3 text-sm text-status-error">
-        {{ operacion.falla.value }}
+      <p v-if="operaciones.falla" class="mt-3 text-sm text-status-error">
+        {{ operaciones.falla }}
       </p>
     </main>
 
     <DialogoDePrevisualizacion
-      :abierto="operacion.abierto.value"
-      :informe="operacion.informe.value"
+      :abierto="operaciones.preguntando"
+      :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"
-      @cerrar="operacion.cancelar"
-      @confirmar="operacion.confirmar" />
+      @cerrar="operaciones.cancelar"
+      @confirmar="operaciones.confirmar" />
   </div>
 </template>

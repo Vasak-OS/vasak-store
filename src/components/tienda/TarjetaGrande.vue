@@ -18,8 +18,8 @@ import InsigniaDeOrigen from '@/components/tienda/InsigniaDeOrigen.vue';
 import type { Tarjeta } from '@/tools/api';
 
 const props = withDefaults(
-	defineProps<{ app: Tarjeta; ocupado?: boolean; conCaptura?: boolean }>(),
-	{ ocupado: false, conCaptura: false }
+	defineProps<{ app: Tarjeta; ocupado?: boolean; conCaptura?: boolean; enCola?: boolean }>(),
+	{ ocupado: false, conCaptura: false, enCola: false }
 );
 const emit = defineEmits<{ abrir: []; instalar: []; actualizar: [] }>();
 
@@ -62,6 +62,7 @@ const captura = computed(() =>
       <BotonInstalar
         :app="app"
         :ocupado="ocupado"
+        :en-cola="enCola"
         @instalar="emit('instalar')"
         @actualizar="emit('actualizar')"
         @receta="emit('abrir')" />

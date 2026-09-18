@@ -19,7 +19,6 @@ import BotonAccion from '@/components/ui/BotonAccion.vue';
 import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
-import { useOperacion } from '@/composables/useOperacion';
 import { useOperaciones } from '@/stores/operaciones';
 import {
 	type AppImage,
@@ -34,7 +33,6 @@ import { bytes } from '@/tools/formato';
 
 const { t } = useI18n();
 const operaciones = useOperaciones();
-const operacion = useOperacion();
 
 const filtro = ref('');
 const lista = ref<Tarjeta[]>([]);
@@ -128,12 +126,11 @@ watch(
 
     <BarraDeBusqueda
       :valor="filtro"
-      :con-aur="false"
       :marcador="t('instaladas.filtro')"
       @buscar="(texto) => { filtro = texto; cargar(); }" />
 
-    <p v-if="operacion.falla.value || falla" class="text-sm text-status-error">
-      {{ operacion.falla.value || falla }}
+    <p v-if="operaciones.falla || falla" class="text-sm text-status-error">
+      {{ operaciones.falla || falla }}
     </p>
 
     <section
@@ -190,10 +187,10 @@ watch(
     <RejillaDeApps v-else :apps="lista" />
 
     <DialogoDePrevisualizacion
-      :abierto="operacion.abierto.value"
-      :informe="operacion.informe.value"
+      :abierto="operaciones.preguntando"
+      :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"
-      @cerrar="operacion.cancelar"
-      @confirmar="operacion.confirmar" />
+      @cerrar="operaciones.cancelar"
+      @confirmar="operaciones.confirmar" />
   </div>
 </template>
