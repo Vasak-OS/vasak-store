@@ -45,6 +45,17 @@ type Clase = 'instalar' | 'quitar' | 'actualizar';
 export const useOperaciones = defineStore('operaciones', () => {
 	/** El identificador de la operación en curso, o nada. */
 	const enCurso = ref<string | null>(null);
+	/**
+	 * Entre que se pide una operación y llega su identificador.
+	 *
+	 * Es una ventana corta pero real: durante ese `await`, `enCurso` todavía es
+	 * nulo, así que sin esta marca la ventana se veía libre y un segundo botón
+	 * podía arrancar otra operación encima. Si esa segunda fallaba, su `catch`
+	 * dejaba `enCurso` en nulo mientras la primera seguía corriendo, y los
+	 * avances de la primera pasaban a ignorarse: la barra se quedaba quieta para
+	 * siempre sobre algo que estaba pasando.
+	 */
+	const iniciando = ref(false);
 	const titulo = ref('');
 	const fase = ref('');
 	const objetivo = ref('');
@@ -75,7 +86,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 
 	let soltar: UnlistenFn[] = [];
 
-	const ocupado = computed(() => enCurso.value !== null || preparando.value);
+	const ocupado = computed(() => enCurso.value !== null || preparando.value || iniciando.value);
 
 	/** Si un paquete está esperando su turno. */
 	function enCola(nombre: string) {
@@ -108,21 +119,17 @@ export const useOperaciones = defineStore('operaciones', () => {
 				}
 			}),
 			listen<FinalDeOperacion>('tienda://terminada', async (evento) => {
-				if (evento.payload.id !== enCurso.value) {
+				const { id, error: problema } = evento.payload;
+				if (id !== enCurso.value) {
+					// Puede haber llegado antes de que `empezar` guardara el
+					// identificador; se anota y `empezar` lo atiende.
+					if (iniciando.value) {
+						terminadasSinDuenio.add(id);
+						erroresHuerfanos.set(id, problema);
+					}
 					return;
 				}
-				error.value = evento.payload.error;
-				termino.value = evento.payload.error === '';
-				enCurso.value = null;
-				fase.value = '';
-				objetivo.value = '';
-				// Las bases en memoria quedaron viejas: lo recién instalado
-				// seguiría figurando como no instalado hasta reabrirlas.
-				await recargar();
-				// Y ahora que el motor está libre, lo que esperaba.
-				if (cola.value.length > 0) {
-					await preguntarPorLaCola();
-				}
+				await cerrar(problema);
 			}),
 		]);
 	}
@@ -144,7 +151,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		if (!cola.value.includes(nombre)) {
 			cola.value.push(nombre);
 		}
-		if (enCurso.value || preguntando.value || preparando.value) {
+		if (ocupado.value || preguntando.value) {
 			return;
 		}
 		await preguntarPorLaCola();
@@ -201,7 +208,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		} catch (error) {
 			falla.value = String(error);
 			pendiente = null;
-			cola.value = [];
+			sacarDeLaCola(que.paquetes);
 		} finally {
 			preparando.value = false;
 		}
@@ -215,7 +222,10 @@ export const useOperaciones = defineStore('operaciones', () => {
 		const { clase, paquetes, conHuerfanas, titulo: comoSeLlama } = pendiente;
 		preguntando.value = false;
 		pendiente = null;
-		cola.value = [];
+		// Sólo lo que se confirmó. Vaciando la cola entera se perdía lo que se
+		// hubiera sumado después de calcular la previsualización, y eso no se
+		// instalaba nunca.
+		sacarDeLaCola(paquetes);
 		await empezar(comoSeLlama, () => {
 			if (clase === 'instalar') {
 				return instalar(paquetes);
@@ -228,9 +238,15 @@ export const useOperaciones = defineStore('operaciones', () => {
 	}
 
 	function cancelar() {
+		const cancelados = pendiente?.paquetes ?? [];
 		preguntando.value = false;
 		pendiente = null;
-		cola.value = [];
+		sacarDeLaCola(cancelados);
+	}
+
+	/** Saca de la cola lo que ya se atendió, dejando lo que llegó después. */
+	function sacarDeLaCola(paquetes: string[]) {
+		cola.value = cola.value.filter((nombre) => !paquetes.includes(nombre));
 	}
 
 	/**
@@ -252,6 +268,11 @@ export const useOperaciones = defineStore('operaciones', () => {
 	 * entre el `await` y la asignación hay lugar para que llegue el primero.
 	 */
 	async function empezar(comoSeLlama: string, pedirlo: () => Promise<string>) {
+		if (enCurso.value || iniciando.value) {
+			falla.value = 'ya hay una operación en curso';
+			return;
+		}
+		iniciando.value = true;
 		titulo.value = comoSeLlama;
 		registro.value = [];
 		error.value = '';
@@ -261,10 +282,41 @@ export const useOperaciones = defineStore('operaciones', () => {
 		total.value = 0;
 		fase.value = 'resolviendo';
 		try {
-			enCurso.value = await pedirlo();
+			const id = await pedirlo();
+			enCurso.value = id;
+			// El final pudo llegar mientras se esperaba el identificador: una
+			// operación que no tiene nada que hacer termina en milisegundos. Sin
+			// esto, ese aviso se descartaba por no reconocer su id y la barra se
+			// quedaba trabajando para siempre.
+			if (terminadasSinDuenio.has(id)) {
+				terminadasSinDuenio.delete(id);
+				await cerrar(erroresHuerfanos.get(id) ?? '');
+				erroresHuerfanos.delete(id);
+			}
 		} catch (problema) {
 			enCurso.value = null;
 			falla.value = String(problema);
+		} finally {
+			iniciando.value = false;
+		}
+	}
+
+	/** Los finales que llegaron antes de que se supiera a quién pertenecían. */
+	const terminadasSinDuenio = new Set<string>();
+	const erroresHuerfanos = new Map<string, string>();
+
+	/** Cierra una operación: deja el resultado, recarga y atiende la cola. */
+	async function cerrar(problema: string) {
+		error.value = problema;
+		termino.value = problema === '';
+		enCurso.value = null;
+		fase.value = '';
+		objetivo.value = '';
+		// Las bases en memoria quedaron viejas: lo recién instalado seguiría
+		// figurando como no instalado hasta reabrirlas.
+		await recargar();
+		if (cola.value.length > 0) {
+			await preguntarPorLaCola();
 		}
 	}
 
@@ -287,6 +339,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		error,
 		termino,
 		cola,
+		iniciando,
 		informe,
 		preguntando,
 		preparando,

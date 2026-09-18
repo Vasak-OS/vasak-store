@@ -46,6 +46,21 @@ describe('el interruptor del AUR', () => {
 		expect(cambiar.slice(0, 500)).toContain('aur.value = (await guardarAur(activo)).aur;');
 	});
 
+	test('no se puede tocar hasta saber cómo estaba', () => {
+		// Antes de leer los ajustes el conmutador se dibuja apagado; tocarlo ahí
+		// guardaría «encendido» sobre un estado que todavía no se conocía.
+		expect(repositorios).toContain(':deshabilitado="!ajustes.cargado"');
+	});
+
+	test('los ajustes se leen antes de empezar a observar el AUR', () => {
+		// Con el observador ya puesto, leer el archivo dispara una carga
+		// idéntica a la inicial: dos consultas a la red por abrir la pantalla.
+		const alMontar = portada.slice(portada.indexOf('onMounted(async'));
+		expect(alMontar.indexOf('ajustes.cargar()')).toBeLessThan(
+			alMontar.indexOf('watch([categoria, texto')
+		);
+	});
+
 	test('buscar usa el ajuste, y cambiarlo rehace la búsqueda', () => {
 		expect(portada).toContain('ajustes.aur');
 		expect(portada).toContain('() => ajustes.aur], cargar)');

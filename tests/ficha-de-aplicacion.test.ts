@@ -78,3 +78,13 @@ describe('los botones', () => {
 		expect(plantilla).not.toContain('rounded-corner-sm');
 	});
 });
+
+describe('las flechas del carrusel', () => {
+	test('se revisan cuando cambia el tamaño y cuando cargan las imágenes', () => {
+		// Las imágenes van con carga diferida y ocupan su lugar recién al
+		// llegar: mirando sólo al montar, la flecha derecha se quedaba
+		// escondida sobre una tira que sí se podía desplazar.
+		expect(carrusel).toContain('ResizeObserver');
+		expect(carrusel).toContain('@load="revisar"');
+	});
+});

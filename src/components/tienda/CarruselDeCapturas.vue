@@ -17,7 +17,7 @@
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { computed, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import ModalBase from '@/components/ui/ModalBase.vue';
 import type { Captura } from '@/tools/api';
 
@@ -52,7 +52,22 @@ function mover(hacia: number) {
 	caja.scrollBy({ left: hacia * caja.clientWidth * 0.8, behavior: 'smooth' });
 }
 
-onMounted(revisar);
+// Las flechas dependen de cuánto mide la tira, y eso cambia después de montar:
+// las imágenes van con `loading="lazy"` y ocupan su lugar recién al cargar, y
+// la ventana se puede redimensionar. Mirando sólo al montar, la flecha derecha
+// se quedaba escondida sobre una tira que sí se podía desplazar.
+let observador: ResizeObserver | null = null;
+
+onMounted(() => {
+	revisar();
+	if (typeof ResizeObserver === 'undefined' || !tira.value) {
+		return;
+	}
+	observador = new ResizeObserver(revisar);
+	observador.observe(tira.value);
+});
+
+onBeforeUnmount(() => observador?.disconnect());
 </script>
 
 <template>
@@ -74,7 +89,8 @@ onMounted(revisar);
             :src="captura.src"
             :alt="captura.titulo"
             loading="lazy"
-            class="h-56 w-auto max-w-[36rem] object-cover">
+            class="h-56 w-auto max-w-[36rem] object-cover"
+            @load="revisar">
         </button>
         <figcaption v-if="captura.titulo" class="max-w-[36rem] truncate text-tx-muted text-xs">
           {{ captura.titulo }}

@@ -121,9 +121,14 @@ function cuantas(n: number) {
 }
 
 onMounted(async () => {
+	// Los ajustes primero, y **antes de empezar a observar**: leer el archivo
+	// puede cambiar `ajustes.aur`, y con el observador ya puesto ese cambio
+	// dispara una carga idéntica a la que viene abajo. Con el AUR encendido eso
+	// son dos consultas a la red por abrir la pantalla.
 	if (!ajustes.cargado) {
 		await ajustes.cargar();
 	}
+
 	// La portada se pide siempre en el primer arranque aunque se entre con una
 	// categoría puesta: de ahí salen las categorías de la barra lateral.
 	if (categoria.value !== PORTADA || buscando.value) {
@@ -134,11 +139,11 @@ onMounted(async () => {
 			.catch(() => {});
 	}
 	await cargar();
-});
 
-// El AUR también: encenderlo desde Repositorios tiene que cambiar lo que se
-// ve acá sin volver a escribir la búsqueda.
-watch([categoria, texto, () => ajustes.aur], cargar);
+	// El AUR también: encenderlo desde Repositorios tiene que cambiar lo que se
+	// ve acá sin volver a escribir la búsqueda.
+	watch([categoria, texto, () => ajustes.aur], cargar);
+});
 watch(
 	() => operaciones.enCurso,
 	(ahora, antes) => {

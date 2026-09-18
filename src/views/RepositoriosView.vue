@@ -119,8 +119,12 @@ onMounted(async () => {
          puesto entre sesiones, como los demás. -->
     <section
       class="flex items-start gap-3 rounded-corner border border-status-warning/50 bg-status-warning/5 p-3">
+      <!-- Deshabilitado hasta saber cómo estaba: antes de leer los ajustes el
+           conmutador se dibuja apagado, y tocarlo ahí guardaría «encendido»
+           sobre un estado que todavía no se conocía. -->
       <InterruptorDeOpcion
         :valor="ajustes.aur"
+        :deshabilitado="!ajustes.cargado"
         :etiqueta="t('origen.aur')"
         @cambiar="(valor: boolean) => ajustes.cambiarAur(valor)" />
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">

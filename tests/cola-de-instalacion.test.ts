@@ -21,7 +21,7 @@ describe('la cola', () => {
 
 	test('con algo corriendo, espera en vez de fallar', () => {
 		const encolar = store.slice(store.indexOf('async function encolar'));
-		expect(encolar.slice(0, 400)).toContain('enCurso.value');
+		expect(encolar.slice(0, 400)).toContain('ocupado.value');
 		expect(encolar.slice(0, 400)).toContain('return;');
 	});
 
@@ -36,21 +36,23 @@ describe('la cola', () => {
 	});
 
 	test('al terminar una operación se atiende lo que esperaba', () => {
-		const alTerminar = store.slice(store.indexOf("listen<FinalDeOperacion>"));
-		expect(alTerminar.slice(0, 1200)).toContain('cola.value.length > 0');
-		expect(alTerminar.slice(0, 1200)).toContain('preguntarPorLaCola()');
+		// El cierre es uno solo —lo comparten el aviso normal y el que llega
+		// antes de tiempo— y es ahí donde se mira la cola.
+		const cerrar = store.slice(store.indexOf('async function cerrar'));
+		expect(cerrar.slice(0, 700)).toContain('cola.value.length > 0');
+		expect(cerrar.slice(0, 700)).toContain('preguntarPorLaCola()');
 	});
 
-	test('confirmar vacía la cola', () => {
-		// Si no, lo confirmado vuelve a encolarse al terminar y se instala dos
-		// veces.
+	test('confirmar saca de la cola lo confirmado', () => {
+		// Si no se sacara, lo confirmado vuelve a encolarse al terminar y se
+		// instala dos veces.
 		const confirmar = store.slice(store.indexOf('async function confirmar'));
-		expect(confirmar.slice(0, 700)).toContain('cola.value = [];');
+		expect(confirmar.slice(0, 800)).toContain('sacarDeLaCola(paquetes)');
 	});
 
-	test('cancelar también', () => {
-		const cancelar = store.slice(store.indexOf('function cancelar'));
-		expect(cancelar.slice(0, 300)).toContain('cola.value = [];');
+	test('cancelar también, y sólo lo que estaba en el diálogo', () => {
+		const cancelar = store.slice(store.indexOf('function cancelar()'));
+		expect(cancelar.slice(0, 400)).toContain('sacarDeLaCola(cancelados)');
 	});
 
 	test('quitar y actualizar no entran a la cola', () => {
@@ -63,5 +65,44 @@ describe('la cola', () => {
 	test('el botón dice que está en cola', () => {
 		expect(boton).toContain("return 'enCola'");
 		expect(boton).toContain("estado === 'enCola'");
+	});
+});
+
+describe('el arranque de una operación', () => {
+	test('se marca antes del primer await', () => {
+		// Entre pedir la operación y recibir su identificador, `enCurso` es
+		// nulo: sin esta marca la ventana se ve libre y un segundo botón puede
+		// arrancar otra encima. Si esa segunda falla, su catch deja `enCurso`
+		// en nulo mientras la primera sigue corriendo, y los avances de la
+		// primera pasan a ignorarse.
+		expect(store).toContain('const iniciando = ref(false);');
+		expect(store).toContain('iniciando.value');
+		const ocupado = store.slice(store.indexOf('const ocupado = computed'));
+		expect(ocupado.slice(0, 200)).toContain('iniciando.value');
+	});
+
+	test('no se arranca una segunda encima de la primera', () => {
+		const empezar = store.slice(store.indexOf('async function empezar'));
+		expect(empezar.slice(0, 300)).toContain('if (enCurso.value || iniciando.value)');
+	});
+
+	test('un final que llega antes que su identificador no se pierde', () => {
+		// Una operación sin nada que hacer termina en milisegundos, y su aviso
+		// puede llegar antes de que se sepa a quién pertenece. Descartado, la
+		// barra se queda trabajando para siempre.
+		expect(store).toContain('terminadasSinDuenio');
+		const alTerminar = store.slice(store.indexOf("listen<FinalDeOperacion>"));
+		expect(alTerminar.slice(0, 900)).toContain('terminadasSinDuenio.add(id)');
+	});
+
+	test('lo que se sumó después de la previsualización no se pierde', () => {
+		// Vaciar la cola entera descartaba lo que hubiera llegado después de
+		// calcular qué arrastra la operación, y eso no se instalaba nunca.
+		expect(store).toContain('function sacarDeLaCola');
+		expect(store).toContain(
+			'cola.value = cola.value.filter((nombre) => !paquetes.includes(nombre));'
+		);
+		const confirmar = store.slice(store.indexOf('async function confirmar'));
+		expect(confirmar.slice(0, 800)).toContain('sacarDeLaCola(paquetes)');
 	});
 });

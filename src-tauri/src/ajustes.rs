@@ -45,6 +45,11 @@ pub fn leer(configuracion: &Path) -> Ajustes {
 /// A un temporal y después renombrar, como todo lo que esta tienda escribe: un
 /// corte a mitad de la escritura dejaría un JSON truncado, que en la próxima
 /// lectura no parsea y se lee como «nunca configuró nada».
+///
+/// El temporal lleva un nombre distinto cada vez. Con uno fijo, dos escrituras
+/// a la vez —dos ventanas de la tienda abiertas, o dos clics seguidos— usan el
+/// mismo archivo: la segunda escribe encima de la primera mientras la primera
+/// todavía no renombró, y lo que queda es una mezcla.
 pub fn escribir(configuracion: &Path, ajustes: &Ajustes) -> Result<(), String> {
     std::fs::create_dir_all(configuracion)
         .map_err(|e| format!("no se pudo crear {}: {e}", configuracion.display()))?;
@@ -53,10 +58,21 @@ pub fn escribir(configuracion: &Path, ajustes: &Ajustes) -> Result<(), String> {
         .map_err(|e| format!("no se pudieron serializar los ajustes: {e}"))?;
 
     let destino = ruta(configuracion);
-    let temporal = destino.with_extension("parcial");
+    let temporal = configuracion.join(format!(
+        ".{}.{}.{}.parcial",
+        ARCHIVO,
+        std::process::id(),
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map(|d| d.as_nanos())
+            .unwrap_or(0)
+    ));
     std::fs::write(&temporal, texto).map_err(|e| format!("no se pudo escribir: {e}"))?;
-    std::fs::rename(&temporal, &destino)
-        .map_err(|e| format!("no se pudo reemplazar {}: {e}", destino.display()))
+    std::fs::rename(&temporal, &destino).map_err(|e| {
+        // El temporal no se queda dando vueltas si el renombrado falló.
+        let _ = std::fs::remove_file(&temporal);
+        format!("no se pudo reemplazar {}: {e}", destino.display())
+    })
 }
 
 #[cfg(test)]
@@ -103,6 +119,16 @@ mod tests {
         let temporal = tempfile::tempdir().unwrap();
         std::fs::write(ruta(temporal.path()), b"{}").unwrap();
         assert_eq!(leer(temporal.path()), Ajustes::default());
+    }
+
+    #[test]
+    fn dos_escrituras_no_usan_el_mismo_temporal() {
+        // Con un nombre fijo, dos ventanas de la tienda escribiendo a la vez se
+        // pisan el archivo intermedio y lo que queda es una mezcla.
+        let temporal = tempfile::tempdir().unwrap();
+        escribir(temporal.path(), &Ajustes { aur: true }).unwrap();
+        escribir(temporal.path(), &Ajustes { aur: false }).unwrap();
+        assert!(!leer(temporal.path()).aur);
     }
 
     #[test]
