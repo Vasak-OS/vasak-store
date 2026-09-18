@@ -240,10 +240,12 @@ describe('confirmar y cancelar', () => {
 		expect(ops.cola).toEqual(['gimp']);
 	});
 
-	test('el informe que llega tarde no se abre sobre una operación ya mandada', async () => {
-		// El recálculo tarda lo que tarde el backend; si en el medio se confirmó,
-		// abrir el diálogo cuando vuelve muestra el informe de algo que ya se
-		// está instalando, con un botón que lo mandaría una segunda vez.
+	test('confirmar durante un recálculo manda lo que el diálogo estaba mostrando', async () => {
+		// El recálculo tarda lo que tarde el backend, y el diálogo sigue abierto
+		// con el informe anterior mientras tanto. Si `pendiente` se adelantara a
+		// `informe`, confirmar mandaba la cola nueva sobre un informe que hablaba
+		// de la vieja: la persona leía «se instala krita» y se instalaban dos.
+		// Que la pantalla diga qué se lleva puesto es todo el punto del diálogo.
 		const ops = unaTienda();
 		await ops.escuchar();
 		await ops.encolar('krita');
@@ -260,12 +262,17 @@ describe('confirmar y cancelar', () => {
 		// Deja que el recálculo arranque y se quede esperando al backend.
 		await Promise.resolve();
 		await ops.confirmar();
+
+		expect(pedidos('instalar')).toHaveLength(1);
+		expect(pedidos('instalar')[0]?.argumentos.paquetes).toEqual(['krita']);
+		// Y lo otro no se pierde: espera a que ésta termine.
+		expect(ops.cola).toEqual(['gimp']);
+
 		soltarInforme(sinArrastre());
 		await juntando;
 
+		// El informe que llega después no abre nada encima de la operación.
 		expect(ops.preguntando).toBe(false);
-		expect(pedidos('instalar')).toHaveLength(1);
-		expect(pedidos('instalar')[0]?.argumentos.paquetes).toEqual(['krita', 'gimp']);
 	});
 
 	test('cancelar cierra el diálogo y suelta lo que estaba por confirmarse', async () => {

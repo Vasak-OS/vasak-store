@@ -84,6 +84,20 @@ export const useOperaciones = defineStore('operaciones', () => {
 		titulo: string;
 	} | null = null;
 
+	/** Cuántos informes se pidieron. De los que estén en vuelo, sólo vale el último. */
+	let ultimoInforme = 0;
+
+	/**
+	 * Deja sin dueño al informe que se esté calculando.
+	 *
+	 * Lo llaman confirmar y cancelar: después de cualquiera de los dos, un
+	 * informe que llegue tarde abriría el diálogo encima de una operación ya
+	 * mandada, o de una pantalla donde la persona acaba de decir que no.
+	 */
+	function anularElInformeEnVuelo() {
+		ultimoInforme++;
+	}
+
 	let soltar: UnlistenFn[] = [];
 
 	const ocupado = computed(() => enCurso.value !== null || preparando.value || iniciando.value);
@@ -251,21 +265,29 @@ export const useOperaciones = defineStore('operaciones', () => {
 	}) {
 		falla.value = '';
 		preparando.value = true;
-		pendiente = que;
+		// `pendiente` no se toca hasta que el informe vuelva. Mientras se
+		// recalcula, el diálogo sigue mostrando el anterior, y lo que el botón
+		// de confirmar manda tiene que ser exactamente eso: los dos describen lo
+		// mismo o no describen nada. Puesto acá arriba, apretar confirmar
+		// mientras se recalculaba instalaba la cola nueva sobre un informe que
+		// hablaba de la vieja — que es justo lo que este diálogo existe para
+		// evitar.
+		const mio = ++ultimoInforme;
 		try {
 			const calculado = await previsualizar(que.clase, que.paquetes, que.conHuerfanas);
-			// Se pudo confirmar o cancelar mientras se calculaba. Abrir el
-			// diálogo ahora sería mostrarle a la persona el informe de algo que
-			// ya se está instalando, con un botón de confirmar que lo mandaría
-			// una segunda vez.
-			if (pendiente !== que) {
+			// Se pidió otro informe mientras se calculaba éste, o se confirmó, o
+			// se canceló. Este ya no es de nadie.
+			if (mio !== ultimoInforme) {
 				return;
 			}
+			pendiente = que;
 			informe.value = calculado;
 			preguntando.value = true;
 		} catch (error) {
 			falla.value = String(error);
-			pendiente = null;
+			// El informe anterior, si había uno, se queda: sigue siendo válido y
+			// sigue siendo lo que la persona está viendo. Lo que falló es el
+			// recálculo.
 			sacarDeLaCola(que.paquetes);
 		} finally {
 			preparando.value = false;
@@ -280,6 +302,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		const { clase, paquetes, conHuerfanas, titulo: comoSeLlama } = pendiente;
 		preguntando.value = false;
 		pendiente = null;
+		anularElInformeEnVuelo();
 		// Sólo lo que se confirmó. Vaciando la cola entera se perdía lo que se
 		// hubiera sumado después de calcular la previsualización, y eso no se
 		// instalaba nunca.
@@ -299,6 +322,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		const cancelados = pendiente?.paquetes ?? [];
 		preguntando.value = false;
 		pendiente = null;
+		anularElInformeEnVuelo();
 		sacarDeLaCola(cancelados);
 	}
 
