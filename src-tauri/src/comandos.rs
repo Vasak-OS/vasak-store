@@ -16,6 +16,7 @@ use tauri::{AppHandle, Emitter, State};
 use vasak_store_protocol::repositorios::Repositorio;
 use vasak_store_protocol::Previsualizacion;
 
+use crate::ajustes::{self, Ajustes};
 use crate::appimage::{self, AppImage};
 use crate::aur;
 use crate::cliente::{Cliente, Final, Linea};
@@ -44,6 +45,8 @@ pub struct Estado {
     pub datos: PathBuf,
     /// El directorio de la persona, para el `.desktop` del menú.
     pub inicio: PathBuf,
+    /// `~/.config/ar.net.vasak.store`, donde vive lo que la tienda recuerda.
+    pub configuracion: PathBuf,
     pub http: reqwest::Client,
     /// La última lista de AppImage, con cuándo se armó.
     ///
@@ -424,6 +427,31 @@ pub async fn agregar_repositorio(
 #[tauri::command]
 pub async fn quitar_repositorio(estado: State<'_, Estado>, nombre: String) -> Result<(), String> {
     estado.servicio()?.quitar_repositorio(&nombre).await
+}
+
+/// Lo que la tienda recuerda entre sesiones.
+#[tauri::command]
+pub async fn ajustes(estado: State<'_, Estado>) -> Result<Ajustes, String> {
+    let configuracion = estado.configuracion.clone();
+    tauri::async_runtime::spawn_blocking(move || ajustes::leer(&configuracion))
+        .await
+        .map_err(|e| format!("no se pudieron leer los ajustes: {e}"))
+}
+
+/// Enciende o apaga el AUR como fuente de paquetes.
+///
+/// Es una decisión sobre de dónde salen los paquetes, no una opción de una
+/// búsqueda: por eso se guarda y por eso vive en la pantalla de Repositorios.
+#[tauri::command]
+pub async fn guardar_aur(estado: State<'_, Estado>, activo: bool) -> Result<Ajustes, String> {
+    let configuracion = estado.configuracion.clone();
+    tauri::async_runtime::spawn_blocking(move || {
+        let mut guardados = ajustes::leer(&configuracion);
+        guardados.aur = activo;
+        ajustes::escribir(&configuracion, &guardados).map(|()| guardados)
+    })
+    .await
+    .map_err(|e| format!("no se pudieron guardar los ajustes: {e}"))?
 }
 
 #[tauri::command]

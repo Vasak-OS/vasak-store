@@ -12,8 +12,11 @@
 //! - `aur` y `appimage` son las otras dos fuentes de la jerarquía de confianza
 //!   de la distribución.
 
+mod ajustes;
 mod appimage;
-mod aur;
+// Públicos para la prueba que consulta el AUR de verdad: es la única que
+// comprueba que el cliente HTTP se pueda construir, y eso no se ve compilando.
+pub mod aur;
 // Público para que las pruebas de integración puedan medir el analizador de
 // AppStream contra el catálogo de verdad, que son veinte megas y no entran en
 // una prueba unitaria.
@@ -24,6 +27,7 @@ mod lector;
 mod locales;
 mod medios;
 mod tipos;
+pub mod tls;
 
 use std::path::PathBuf;
 
@@ -32,6 +36,11 @@ use lector::Lector;
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    // Antes que nada: el motor de criptografía de rustls. Tiene que estar
+    // instalado antes de que se arme el primer cliente HTTP, y el primero se
+    // arma en `setup`. Ver `tls.rs`.
+    tls::instalar();
+
     tauri::Builder::default()
         // El diario del sistema, con el nombre de esta aplicación. Va
         // **primero** de todos los plugins: instala el gancho de pánico, y un
@@ -53,7 +62,7 @@ pub fn run() {
             use tauri::Manager;
 
             let idioma = locales::idioma_del_sistema();
-            let (cache, datos, inicio) = directorios(app.handle());
+            let (cache, datos, inicio, configuracion) = directorios(app.handle());
 
             let estado = comandos::Estado {
                 lector: Lector::arrancar(idioma, cache.clone()),
@@ -61,6 +70,7 @@ pub fn run() {
                 cache,
                 datos,
                 inicio,
+                configuracion,
                 http: reqwest::Client::builder()
                     // Sin esto, cada captura que no contesta deja una conexión
                     // colgada hasta que el sistema operativo se aburre.
@@ -121,6 +131,8 @@ pub fn run() {
             comandos::cambiar_repositorio,
             comandos::agregar_repositorio,
             comandos::quitar_repositorio,
+            comandos::ajustes,
+            comandos::guardar_aur,
             comandos::appimages,
             comandos::integrar_appimage,
             comandos::quitar_appimage,
@@ -135,7 +147,7 @@ pub fn run() {
 /// Se piden a Tauri, que respeta las variables de XDG; el respaldo es para el
 /// caso raro de que no pueda resolverlos, donde es mejor escribir en un lugar
 /// previsible que no arrancar.
-fn directorios(app: &tauri::AppHandle) -> (PathBuf, PathBuf, PathBuf) {
+fn directorios(app: &tauri::AppHandle) -> (PathBuf, PathBuf, PathBuf, PathBuf) {
     use tauri::Manager;
 
     let inicio = app
@@ -151,5 +163,10 @@ fn directorios(app: &tauri::AppHandle) -> (PathBuf, PathBuf, PathBuf) {
         .app_local_data_dir()
         .unwrap_or_else(|_| inicio.join(".local/share/vasak-store"));
 
-    (cache, datos, inicio)
+    let configuracion = app
+        .path()
+        .app_config_dir()
+        .unwrap_or_else(|_| inicio.join(".config/vasak-store"));
+
+    (cache, datos, inicio, configuracion)
 }

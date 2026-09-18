@@ -113,6 +113,8 @@ repositorios:
   confirmarQuitar: "¿Quitar {0}?"
   confirmarQuitarNota: Los paquetes que ya instalaste siguen instalados. Lo que se pierde es de dónde sacar sus actualizaciones.
   agregado: Agregado desde la tienda
+  sinRevisar: Sin revisar
+  aurNota: Recetas que sube cualquiera y que se compilan en tu máquina. Encendido, sus resultados aparecen al buscar, marcados aparte; instalar uno pide leer antes el PKGBUILD, que es lo que se va a ejecutar acá.
 detalle:
   instalar: Instalar
   quitar: Desinstalar
@@ -143,6 +145,7 @@ detalle:
   compilarEInstalar: Compilar e instalar
   capturaAnterior: Captura anterior
   capturaSiguiente: Captura siguiente
+  informacion: Información
 operacion:
   previsualizacion: Lo que va a pasar
   seInstalan: Se instalan
@@ -173,6 +176,7 @@ tarjeta:
   actualizar: Actualizar
   instalada: Instalado
   receta: Ver la receta
+  enCola: En cola
 barraLateral:
   plegar: Plegar la barra lateral
   desplegar: Desplegar la barra lateral

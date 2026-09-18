@@ -51,6 +51,11 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # su combinación de rustls con el proveedor de criptografía `ring`.
 raur = { version = "8", default-features = false, features = ["async", "rusttls-ring"] }
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# El motor de criptografía de rustls, instalado a mano en el arranque. Con
+# `rustls-no-provider` —que es lo que pide la combinación de arriba— la
+# biblioteca no elige ninguno, y el primer cliente que se arma paniquea. Ver
+# `tls.rs`.
+rustls = { version = "0.23", default-features = false, features = ["ring"] }
 # Los flujos de señales de zbus son `Stream`, y `select!` sobre varios pide esto.
 futures-util = "0.3"
 

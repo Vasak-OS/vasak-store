@@ -113,6 +113,8 @@ repositorios:
   confirmarQuitar: "Remove {0}?"
   confirmarQuitarNota: Packages you already installed stay installed. What is lost is where their updates come from.
   agregado: Added from the store
+  sinRevisar: Unreviewed
+  aurNota: Recipes anyone can upload, built on your machine. When on, its results show up in searches, marked apart; installing one requires reading the PKGBUILD first, which is what will run here.
 detalle:
   instalar: Install
   quitar: Remove
@@ -143,6 +145,7 @@ detalle:
   compilarEInstalar: Build and install
   capturaAnterior: Previous screenshot
   capturaSiguiente: Next screenshot
+  informacion: Information
 operacion:
   previsualizacion: What will happen
   seInstalan: Will be installed
@@ -173,6 +176,7 @@ tarjeta:
   actualizar: Update
   instalada: Installed
   receta: View the recipe
+  enCola: Queued
 barraLateral:
   plegar: Collapse the sidebar
   desplegar: Expand the sidebar

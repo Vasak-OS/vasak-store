@@ -1,52 +1,113 @@
 <script lang="ts" setup>
 /**
- * Las capturas de una aplicación.
+ * Las capturas de una aplicación, todas a la vez.
  *
- * Con flechas y no sólo arrastre: el arrastre lateral no existe con teclado, y
- * en un panel táctil hace falta un gesto que no todo el mundo tiene configurado.
- * Las imágenes vienen del disco —se bajaron antes— así que pasan por
- * `convertFileSrc`.
+ * Una tira que se desplaza en horizontal, con las miniaturas en su tamaño real
+ * y ancladas —cada una se detiene alineada al borde—. Antes se veía **una
+ * sola** y había que apretar una flecha para saber que existían más; mostrando
+ * la tira, que hay cuatro capturas se ve de entrada, que es la mitad de para
+ * qué están.
+ *
+ * Al hacer clic, la captura se abre en grande. Es lo que uno espera de una
+ * imagen chica que muestra una pantalla llena de detalles.
+ *
+ * Las flechas se quedan para el teclado y para los paneles táctiles donde el
+ * desplazamiento horizontal no está configurado, y aparecen sólo cuando hay
+ * algo hacia donde ir.
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
+import ModalBase from '@/components/ui/ModalBase.vue';
 import type { Captura } from '@/tools/api';
 
 const props = defineProps<{ capturas: Captura[] }>();
 const { t } = useI18n();
 
-const actual = ref(0);
-const captura = computed(() => props.capturas[actual.value]);
+const tira = ref<HTMLElement | null>(null);
+const puedeIzquierda = ref(false);
+const puedeDerecha = ref(false);
+const ampliada = ref<Captura | null>(null);
 
-function mover(cuanto: number) {
-	const cuantas = props.capturas.length;
-	actual.value = (actual.value + cuanto + cuantas) % cuantas;
+const fuentes = computed(() =>
+	props.capturas.map((captura) => ({ ...captura, src: convertFileSrc(captura.ruta) }))
+);
+
+function revisar() {
+	const caja = tira.value;
+	if (!caja) {
+		return;
+	}
+	puedeIzquierda.value = caja.scrollLeft > 4;
+	// El margen de cuatro píxeles evita que el redondeo del navegador deje la
+	// flecha encendida para siempre al final de la tira.
+	puedeDerecha.value = caja.scrollLeft + caja.clientWidth < caja.scrollWidth - 4;
 }
+
+function mover(hacia: number) {
+	const caja = tira.value;
+	if (!caja) {
+		return;
+	}
+	caja.scrollBy({ left: hacia * caja.clientWidth * 0.8, behavior: 'smooth' });
+}
+
+onMounted(revisar);
 </script>
+
 <template>
-  <div v-if="capturas.length > 0" class="flex flex-col gap-2">
-    <div class="relative overflow-hidden rounded-corner border border-ui-border bg-ui-surface/40">
-      <img
-        :src="convertFileSrc(captura.ruta)"
-        :alt="captura.titulo"
-        class="mx-auto max-h-80 w-auto object-contain">
-      <template v-if="capturas.length > 1">
+  <div v-if="fuentes.length > 0" class="relative">
+    <div
+      ref="tira"
+      class="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
+      @scroll="revisar">
+      <figure
+        v-for="captura in fuentes"
+        :key="captura.ruta"
+        class="flex shrink-0 snap-start flex-col gap-1">
         <button
           type="button"
-          class="-translate-y-1/2 absolute top-1/2 left-2 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm"
-          :aria-label="t('detalle.capturaAnterior')"
-          @click="mover(-1)">
-          ‹
+          class="overflow-hidden rounded-corner border border-ui-border bg-ui-surface/40 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+          :aria-label="captura.titulo || t('detalle.capturas')"
+          @click="ampliada = captura">
+          <img
+            :src="captura.src"
+            :alt="captura.titulo"
+            loading="lazy"
+            class="h-56 w-auto max-w-[36rem] object-cover">
         </button>
-        <button
-          type="button"
-          class="-translate-y-1/2 absolute top-1/2 right-2 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm"
-          :aria-label="t('detalle.capturaSiguiente')"
-          @click="mover(1)">
-          ›
-        </button>
-      </template>
+        <figcaption v-if="captura.titulo" class="max-w-[36rem] truncate text-tx-muted text-xs">
+          {{ captura.titulo }}
+        </figcaption>
+      </figure>
     </div>
-    <p v-if="captura.titulo" class="text-center text-tx-muted text-xs">{{ captura.titulo }}</p>
+
+    <button
+      v-if="puedeIzquierda"
+      type="button"
+      class="-translate-y-1/2 absolute top-1/2 left-1 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm shadow-sm"
+      :aria-label="t('detalle.capturaAnterior')"
+      @click="mover(-1)">
+      ‹
+    </button>
+    <button
+      v-if="puedeDerecha"
+      type="button"
+      class="-translate-y-1/2 absolute top-1/2 right-1 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm shadow-sm"
+      :aria-label="t('detalle.capturaSiguiente')"
+      @click="mover(1)">
+      ›
+    </button>
+
+    <ModalBase
+      :abierto="ampliada !== null"
+      :titulo="ampliada?.titulo || t('detalle.capturas')"
+      @cerrar="ampliada = null">
+      <img
+        v-if="ampliada"
+        :src="convertFileSrc(ampliada.ruta)"
+        :alt="ampliada.titulo"
+        class="mx-auto max-h-[70vh] w-auto rounded-corner">
+    </ModalBase>
   </div>
 </template>

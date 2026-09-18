@@ -1,24 +1,27 @@
 <script lang="ts" setup>
 /**
- * El campo de búsqueda, con el interruptor del AUR al lado.
+ * El campo de búsqueda.
  *
  * Con espera antes de buscar: cada tecla dispararía un recorrido de quince mil
  * paquetes y una consulta al AUR, y el resultado de la penúltima podría llegar
  * después que el de la última y pisarla.
+ *
+ * El interruptor del AUR **no está acá**. Estuvo, y era el lugar equivocado:
+ * prender el AUR no es una forma de buscar sino agregar una fuente de paquetes
+ * con otro nivel de confianza, y eso es el tema de la pantalla de Repositorios.
+ * Acá era además una opción que se olvidaba al cerrar la ventana.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { onUnmounted, ref, watch } from 'vue';
 import CampoDeTexto from '@/components/ui/CampoDeTexto.vue';
-import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
 
 /** Cuánto se espera tras la última tecla. */
 const ESPERA = 250;
 
-const props = withDefaults(
-	defineProps<{ valor: string; aur?: boolean; conAur?: boolean; marcador?: string }>(),
-	{ aur: false, conAur: true, marcador: undefined }
-);
-const emit = defineEmits<{ buscar: [texto: string]; cambiarAur: [valor: boolean] }>();
+const props = withDefaults(defineProps<{ valor: string; marcador?: string }>(), {
+	marcador: undefined,
+});
+const emit = defineEmits<{ buscar: [texto: string] }>();
 const { t } = useI18n();
 
 const texto = ref(props.valor);
@@ -34,8 +37,7 @@ watch(texto, (ahora) => {
  *
  * Cancela lo que hubiera pendiente: sin eso, apretar Enter dispara la búsqueda
  * y doscientos milisegundos después el temporizador dispara **otra** con el
- * mismo texto. Dos recorridos de quince mil paquetes y dos consultas al AUR
- * para una sola tecla.
+ * mismo texto.
  */
 function ahora() {
 	clearTimeout(temporizador);
@@ -45,21 +47,10 @@ function ahora() {
 onUnmounted(() => clearTimeout(temporizador));
 </script>
 <template>
-  <div class="flex flex-wrap items-center gap-3">
-    <div class="min-w-0 flex-1">
-      <CampoDeTexto
-        v-model="texto"
-        type="search"
-        :placeholder="marcador ?? t('busqueda.marcador')"
-        :etiqueta="marcador ?? t('busqueda.marcador')"
-        @keydown.enter="ahora" />
-    </div>
-    <label v-if="conAur" class="flex items-center gap-2 text-sm" :title="t('busqueda.incluirAurNota')">
-      <InterruptorDeOpcion
-        :valor="aur"
-        :etiqueta="t('busqueda.incluirAur')"
-        @cambiar="(valor) => emit('cambiarAur', valor)" />
-      {{ t('busqueda.incluirAur') }}
-    </label>
-  </div>
+  <CampoDeTexto
+    v-model="texto"
+    type="search"
+    :placeholder="marcador ?? t('busqueda.marcador')"
+    :etiqueta="marcador ?? t('busqueda.marcador')"
+    @keydown.enter="ahora" />
 </template>
