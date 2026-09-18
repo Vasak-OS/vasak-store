@@ -244,13 +244,20 @@ describe('lo que no se puede montar', () => {
 		// las descripciones salen del catálogo de AppStream y de la base de
 		// pacman, que no escribimos nosotros.
 		const vue = new Bun.Glob('src/**/*.vue');
+		const mirados: string[] = [];
 		const conVHtml: string[] = [];
 		for await (const ruta of vue.scan({ cwd: new URL('..', import.meta.url).pathname })) {
 			const fuente = await Bun.file(new URL(`../${ruta}`, import.meta.url)).text();
+			mirados.push(ruta);
 			if (fuente.includes('v-html')) {
 				conVHtml.push(ruta);
 			}
 		}
+
+		// Primero que haya mirado algo: esta prueba afirma una ausencia, y el día
+		// que el patrón deje de encontrar archivos —una carpeta que se mueve—
+		// pasaría sola justo cuando dejó de comprobar nada.
+		expect(mirados.length).toBeGreaterThan(20);
 		expect(conVHtml).toEqual([]);
 	});
 
