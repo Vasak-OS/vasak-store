@@ -100,7 +100,34 @@ impl Estado {
 
 #[tauri::command]
 pub async fn descubrir(estado: State<'_, Estado>) -> Result<Descubrimiento, String> {
-    Ok(estado.lector.descubrir().await)
+    let mut portada = estado.lector.descubrir().await;
+
+    // Las capturas de la fila destacada se bajan acá, en paralelo, y recién
+    // entonces la tarjeta lleva una ruta local. Son doce y quedan en la caché,
+    // así que esto cuesta una vez.
+    //
+    // La que no se pueda bajar queda sin captura y la tarjeta se dibuja con su
+    // ícono sobre un degradado: sin red, la portada se ve distinta pero se ve.
+    let bajadas = futures_util::future::join_all(portada.seleccion.iter().map(|tarjeta| {
+        let cache = estado.cache.clone();
+        let http = estado.http.clone();
+        let url = tarjeta.captura.clone();
+        async move {
+            match url {
+                Some(url) => medios::traer_captura(&url, &cache, &http)
+                    .await
+                    .map(|ruta| ruta.to_string_lossy().to_string()),
+                None => None,
+            }
+        }
+    }))
+    .await;
+
+    for (tarjeta, bajada) in portada.seleccion.iter_mut().zip(bajadas) {
+        tarjeta.captura = bajada;
+    }
+
+    Ok(portada)
 }
 
 /// Busca en los repositorios y, si se pide, también en el AUR.

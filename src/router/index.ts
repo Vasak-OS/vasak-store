@@ -33,15 +33,19 @@ const router = createRouter({
 			name: 'repositorios',
 			component: () => import('@/views/RepositoriosView.vue'),
 		},
+		// Buscar y navegar una categoría son Descubrir con otro estado, y ese
+		// estado vive en la query para que atrás y adelante funcionen. Las dos
+		// rutas viejas siguen existiendo y redirigen: hay enlaces guardados y
+		// una ruta que deja de existir manda a una pantalla en blanco.
 		{
 			path: '/buscar',
 			name: 'buscar',
-			component: () => import('@/views/BuscarView.vue'),
+			redirect: (a) => ({ name: 'descubrir', query: { q: a.query.q } }),
 		},
 		{
 			path: '/categoria/:id',
 			name: 'categoria',
-			component: () => import('@/views/CategoriaView.vue'),
+			redirect: (a) => ({ name: 'descubrir', query: { cat: a.params.id } }),
 		},
 		{
 			// El origen va en la ruta y no sólo en el estado: una ficha del AUR

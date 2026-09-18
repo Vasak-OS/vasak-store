@@ -67,6 +67,7 @@ impl AppImage {
             votos: None,
             popularidad: None,
             actualizado: Some(self.integrado),
+            captura: None,
         }
     }
 }

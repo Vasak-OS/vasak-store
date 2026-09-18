@@ -66,6 +66,7 @@ descubrir:
   novedadesNota: Por fecha de construcción del paquete, que es el dato que la máquina sí tiene.
   vacio: No hay catálogo de aplicaciones instalado.
   vacioNota: Falta el paquete archlinux-appstream-data. Sin él la tienda igual busca e instala, pero no puede mostrar nombres, íconos ni capturas.
+  todo: Todo
 instaladas:
   titulo: Instaladas
   filtro: Filtrar lo instalado
@@ -167,3 +168,7 @@ fases:
   instalando: Instalando
   quitando: Quitando
   terminando: Terminando
+tarjeta:
+  instalar: Instalar
+  actualizar: Actualizar
+  instalada: Instalado
