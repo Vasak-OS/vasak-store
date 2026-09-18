@@ -16,6 +16,9 @@ const selector = await Bun.file(
 const layout = await Bun.file(
 	new URL('../src/layouts/WindowAppLayout.vue', import.meta.url)
 ).text();
+const logo = await Bun.file(
+	new URL('../src/components/topbar/LogoDeLaTienda.vue', import.meta.url)
+).text();
 
 describe('la barra superior', () => {
 	test('tiene una zona para el logo y otra para el resto', () => {
@@ -65,5 +68,22 @@ describe('el selector', () => {
 	test('las pantallas que cuelgan de una sección la dejan encendida', () => {
 		expect(selector).toContain("nombre === 'categoria'");
 		expect(selector).toContain("nombre === 'detalle'");
+	});
+});
+
+describe('el logotipo', () => {
+	test('es sólo el ícono, sin el nombre escrito al lado', () => {
+		// El nombre le comía espacio al selector de secciones, que es lo único
+		// que en esa barra hace falta; la ventana ya se identifica por el ícono
+		// y por el título que pone el gestor de ventanas.
+		const plantilla = logo.slice(logo.indexOf('<template>'));
+		expect(plantilla).not.toContain('<span');
+	});
+
+	test('el nombre sigue estando para quien no ve el ícono', () => {
+		// Con `alt` vacío el ícono sería decoración, y un lector de pantalla no
+		// diría en qué aplicación está parado.
+		expect(logo).toContain(":alt=\"t('app.nombre')\"");
+		expect(logo).not.toContain('alt=""');
 	});
 });
