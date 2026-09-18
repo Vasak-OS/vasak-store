@@ -6,7 +6,7 @@
  * daban igual; acá se arma una válida y cada prueba cambia sólo lo suyo.
  */
 
-import type { Tarjeta } from '@/tools/api';
+import type { Captura, Detalle, Tarjeta } from '@/tools/api';
 
 export function unaApp(cambios: Partial<Tarjeta> = {}): Tarjeta {
 	return {
@@ -28,4 +28,33 @@ export function unaApp(cambios: Partial<Tarjeta> = {}): Tarjeta {
 /** Una previsualización que no arrastra nada, para lo que no la mira. */
 export function sinArrastre() {
 	return { instalar: [], quitar: [], actualizar: [], conflictos: [], descarga: 0, espacio: 0 };
+}
+
+/** La ficha entera, que es la tarjeta más todo lo que sólo se ve en el detalle. */
+export function unaFicha(cambios: Partial<Detalle> = {}): Detalle {
+	return {
+		...unaApp(),
+		descripcion: 'Un estudio de pintura digital y de dibujo.',
+		capturas: [],
+		web: 'https://krita.org',
+		licencia: 'GPL-3.0-or-later',
+		autor: 'KDE',
+		empaquetador: 'Antonio Rojas',
+		arquitectura: 'x86_64',
+		descarga: 89_128_960,
+		construido: 1_700_000_000,
+		instalado_el: null,
+		dependencias: ['qt5-base', 'kseexpr'],
+		opcionales: [],
+		requerido_por: [],
+		...cambios,
+	};
+}
+
+/** Unas capturas, ya bajadas a la caché. */
+export function unasCapturas(cuantas = 3): Captura[] {
+	return Array.from({ length: cuantas }, (_, i) => ({
+		ruta: `/var/cache/tienda/krita-${i + 1}.png`,
+		titulo: `Captura ${i + 1}`,
+	}));
 }
