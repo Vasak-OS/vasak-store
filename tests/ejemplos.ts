@@ -19,7 +19,7 @@ export function unaApp(cambios: Partial<Tarjeta> = {}): Tarjeta {
 		instalada: false,
 		actualizable: null,
 		tamano: 1024,
-		icono: { tipo: 'tema', valor: 'krita' },
+		icono: { tema: ['krita', 'package-x-generic'] },
 		categorias: ['graficos'],
 		...cambios,
 	};

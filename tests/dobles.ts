@@ -98,9 +98,26 @@ export function useI18n() {
 	};
 }
 
-/** Los íconos del tema: ninguno resuelve, así que se cae al archivo. */
-export async function getIconSource(_nombre: string) {
-	return '';
+const temaDeIconos = new Map<string, string | (() => Promise<string>)>();
+
+/**
+ * Pone un nombre en el tema de íconos.
+ *
+ * Se puede pasar una función para quedarse con el control de cuándo contesta:
+ * el componente resuelve en paralelo y descarta las respuestas viejas, y eso
+ * sólo se puede comprobar haciendo que la vieja llegue tarde.
+ */
+export function ponerEnElTema(nombre: string, fuente: string | (() => Promise<string>)) {
+	temaDeIconos.set(nombre, fuente);
+}
+
+/** Lo que el tema no tiene: el plugin lanza, y el componente prueba el siguiente. */
+export async function getIconSource(nombre: string) {
+	const puesto = temaDeIconos.get(nombre);
+	if (puesto === undefined) {
+		throw new Error(`el tema no tiene «${nombre}»`);
+	}
+	return typeof puesto === 'function' ? await puesto() : puesto;
 }
 
 export async function getSymbolSource(_nombre: string) {
@@ -112,4 +129,5 @@ export function olvidarTodo() {
 	invocaciones.length = 0;
 	respuestas.clear();
 	oyentes.clear();
+	temaDeIconos.clear();
 }
