@@ -1,0 +1,49 @@
+# Las tres piezas comparten el contrato de D-Bus en `protocol`, así que un
+# cambio en un mensaje no se puede aplicar de un lado y olvidar del otro.
+#
+# Y son tres y no dos por una razón de privilegios: `daemon` corre como root y
+# es el único que abre una transacción de pacman; `src-tauri` corre como la
+# persona y sólo **lee** las bases de datos, que ya son legibles por cualquiera.
+# Buscar, listar lo instalado y calcular las actualizaciones no necesitan pedir
+# permiso a nadie.
+[workspace]
+resolver = "2"
+members = ["protocol", "daemon", "src-tauri"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Vasak Group", "Joaquin (Pato) Decima"]
+license = "MIT"
+
+[workspace.dependencies]
+vasak-store-protocol = { path = "protocol" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+# La bandera `tokio` hace que zbus ejecute los métodos de las interfaces sobre
+# el ejecutor de Tokio. Sin ella corren sobre el suyo, donde cualquier cosa de
+# `tokio::time` paniquea con «there is no reactor running» y se lleva puesta la
+# conexión entera. Lo aprendimos en vasak-permissions.
+zbus = { version = "5", features = ["tokio"] }
+tokio = { version = "1", features = ["full"] }
+# Las ataduras de libalpm. Es la misma biblioteca que usa pacman, no un
+# analizador de su salida: las versiones se comparan con `vercmp` de verdad y
+# el progreso lo informa la transacción, no una expresión regular.
+alpm = "5"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+[profile.dev]
+incremental = true # Compilar el binario en pasos más chicos.
+
+[profile.release]
+codegen-units = 1  # Deja que LLVM optimice mirando todo el programa a la vez.
+lto = "thin"       # ~90% del beneficio de fat LTO, compilando mucho más rápido.
+opt-level = 3      # Máxima optimización de velocidad.
+panic = "abort"    # Sin desenrollado de pila: binario más chico y más rápido.
+strip = true       # Fuera los símbolos de depuración.
+
+# Ojo al empaquetar: makepkg inyecta `-flto` global en CFLAGS/LDFLAGS, y los
+# crates que compilan C o assembly emiten bitcode que el enlazador de rustc no
+# resuelve. El PKGBUILD tiene que llevar `options=('!lto')` — Cargo ya hace su
+# propio LTO acá arriba.

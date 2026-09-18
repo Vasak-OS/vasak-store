@@ -1,57 +1,81 @@
 [package]
-name = "vapp"
-version = "0.1.0"
-description = "A Vasak Application (template)"
-authors = ["Vasak Group", "Joaquin (Pato) Decima"]
-edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+name = "vasak-store"
+description = "La tienda de aplicaciones de VasakOS"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
 
 [lib]
-# The `_lib` suffix may seem redundant but it is necessary
-# to make the lib name unique and wouldn't conflict with the bin name.
-# This seems to be only an issue on Windows, see https://github.com/rust-lang/cargo/issues/8519
-name = "vapp_lib"
+# El sufijo `_lib` parece redundante y no lo es: sin él el nombre de la
+# biblioteca choca con el del binario.
+name = "vasak_store_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-tauri = { version = "2", features = [] }
-serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+vasak-store-protocol.workspace = true
+tauri = { version = "2", features = ["protocol-asset"] }
+serde.workspace = true
+serde_json.workspace = true
+zbus.workspace = true
+tokio.workspace = true
 
-# Los plugins del escritorio. Los cuatro, no dos: una app de VasakOS tiene que
-# hablar el idioma de la sesión y abrir el menú del sistema con el clic derecho.
+# Leer las bases de datos de pacman. Esto **no** necesita privilegios: buscar,
+# listar lo instalado y calcular qué se puede actualizar son lecturas de
+# archivos que cualquiera puede leer, y hacerlas acá evita despertar al demonio
+# —que corre como root— para contestar una consulta.
+alpm.workspace = true
+alpm-utils = "5"
+pacmanconf = "3"
+
+# El catálogo de AppStream viene como XML comprimido con gzip.
+flate2 = "1"
+quick-xml = "0.42"
+
+# Los íconos del catálogo son JPEG XL, los 3843, y WebKit no dibuja ese
+# formato: sin esto la tienda se vería sin un solo ícono. Se decodifican una vez
+# y se guardan como PNG en la caché. `jxl-oxide` es Rust puro, así que no suma
+# una biblioteca de C a la que seguirle las versiones.
+jxl-oxide = { version = "0.12", features = ["image"] }
+image = { version = "0.25", default-features = false, features = ["png"] }
+
+# El AUR y las capturas de pantalla, que son URL remotas.
+#
+# Con `rustls` y sin las opciones por omisión de `raur`, que traen `native-tls`:
+# con ellas el binario terminaba enlazado contra `libssl.so.3` del sistema
+# —comprobado con `readelf -d`— y eso es una dependencia más que sigue las
+# versiones de OpenSSL de la distribución. `rusttls-ring` es como `raur` llama a
+# su combinación de rustls con el proveedor de criptografía `ring`.
+raur = { version = "8", default-features = false, features = ["async", "rusttls-ring"] }
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# Los flujos de señales de zbus son `Stream`, y `select!` sobre varios pide esto.
+futures-util = "0.3"
+
+# Los plugins del escritorio. Los cuatro, no dos: una aplicación de VasakOS
+# tiene que hablar el idioma de la sesión y abrir el menú del sistema con el
+# clic derecho.
 tauri-plugin-vicons = "2"
 tauri-plugin-config-manager = "2"
 tauri-plugin-i18n-vsk = "2.1.1"
 tauri-plugin-vsk-contextual-menu = "2"
 tauri-plugin-shell = "2"
+tauri-plugin-vsk-journal = "2"
 
 # Para la ventana sin decoración: la barra propia necesita mover y redimensionar.
 gtk = "0.18"
-tauri-plugin-vsk-journal = "2"
 
 [dev-dependencies]
 # Sólo para el test que valida los catálogos de idioma: el plugin los parsea en
-# tiempo de ejecución y **paniquea** si no puede, así que un error de sintaxis no
-# se ve hasta que la aplicación no arranca.
+# tiempo de ejecución y **paniquea** si no puede, así que un error de sintaxis
+# no se ve hasta que la aplicación no arranca.
 serde_yaml = "0.9"
+tempfile = "3"
 
-[profile.dev]
-incremental = true # Compile your binary in smaller steps.
-
-[profile.release]
-codegen-units = 1  # Deja que LLVM optimice mirando todo el programa a la vez.
-lto = "thin"       # ~90% del beneficio de fat LTO, compilando mucho más rápido.
-opt-level = 3      # Máxima optimización de velocidad.
-panic = "abort"    # Sin desenrollado de pila: binario más chico y más rápido.
-strip = true       # Fuera los símbolos de depuración.
-
-# Ojo al empaquetar: makepkg inyecta `-flto` global en CFLAGS/LDFLAGS, y los
-# crates que compilan C o assembly (ring, vía rustls) emiten bitcode que el
-# enlazador de rustc no resuelve. El PKGBUILD tiene que llevar `options=('!lto')`
-# — Cargo ya hace su propio LTO acá arriba, así que el de makepkg es redundante
-# además de dañino.
+[features]
+# `tauri build` la enciende sola. Hace falta nombrarla cuando se compila con
+# cargo a mano para probar la ventana: sin ella el WebView busca el frontend en
+# el servidor de desarrollo y, si no está, abre en blanco.
+custom-protocol = ["tauri/custom-protocol"]

@@ -1,0 +1,5 @@
+[D-BUS Service]
+Name=ar.net.vasak.os.Store
+Exec=/usr/bin/vasak-store-daemon
+User=root
+SystemdService=vasak-store-daemon.service

@@ -1,0 +1,11 @@
+[package]
+name = "vasak-store-protocol"
+description = "El contrato de D-Bus entre la tienda y su demonio"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+
+[dependencies]
+serde.workspace = true
+serde_json.workspace = true

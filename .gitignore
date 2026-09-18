@@ -12,6 +12,12 @@ dist
 dist-ssr
 *.local
 
+# Cargo. El directorio de compilación está en la raíz y no en `src-tauri`,
+# porque las tres piezas —la aplicación, el servicio y el contrato— son un
+# workspace y comparten uno solo. El `.gitignore` de `src-tauri` sigue teniendo
+# el suyo, que ya no se usa pero tampoco molesta.
+/target
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

@@ -1,11 +1,169 @@
 _version: 1
+# One catalogue per language, with keys grouped by screen or component.
+#
+# Two rules we learned the hard way:
+#
+#  1. If a value contains `: `, it goes **in quotes**. Without them the parser
+#     reads it as a nested mapping and breaks the whole file — and the plugin
+#     panics on start-up, so the application does not open.
+#  2. Both languages must have the **same keys** and the same `{0}` markers.
+#     There is a test that checks it.
 app:
-  nombre: Vasak Application
+  nombre: Store
 ventana:
-  minimizar: Minimise
-  maximizar: Maximise
+  minimizar: Minimize
+  maximizar: Maximize
   cerrar: Close
-inicio:
-  titulo: Hello, VasakOS
-  descripcion: This is the template. Replace this screen with your own.
-  saludo: "Hello, {0}"
+secciones:
+  descubrir: Discover
+  instaladas: Installed
+  actualizaciones: Updates
+  repositorios: Repositories
+  navegacion: Store sections
+comun:
+  cargando: Loading…
+  reintentar: Retry
+  cerrar: Close
+  cancelar: Cancel
+  aceptar: OK
+  volver: Back
+  buscar: Search
+  sinConexion: There is no connection to the package service. The store can browse and search, but it cannot install or remove anything.
+  noSePudoLeer: Could not read
+busqueda:
+  marcador: Search for software
+  incluirAur: Include the AUR
+  incluirAurNota: Recipes anyone can upload, built on your machine. The distribution treats them as untrusted.
+  sinResultados: Nothing found
+  sinResultadosNota: Try another word, or turn on the AUR to search there too.
+  resultadosOne: "{0} result"
+  resultadosOther: "{0} results"
+  filtroOrigen: Source
+  todos: All
+origen:
+  repositorio: Repository
+  aur: AUR
+  appimage: AppImage
+  local: Installed
+  repositorioNota: Signed and reviewed by the distribution.
+  aurNota: Unreviewed. Built here from whatever the author wrote.
+  appimageNota: A file you downloaded. It runs confined by AppArmor.
+  localNota: It is installed, but no configured repository provides it any more.
+categorias:
+  titulo: Categories
+  juegos: Games
+  desarrollo: Development
+  productividad: Productivity
+  multimedia: Multimedia
+  sistema: System
+  utilidades: Utilities
+  cuantasOne: "{0} application"
+  cuantasOther: "{0} applications"
+descubrir:
+  seleccion: Worth a look
+  seleccionNota: "A random sample that changes every day. Not a ranking: a machine has no way of knowing what people install."
+  novedades: Recently updated
+  novedadesNota: By package build date, which is the figure the machine actually has.
+  vacio: No application catalogue is installed.
+  vacioNota: The archlinux-appstream-data package is missing. Without it the store still searches and installs, but it cannot show names, icons or screenshots.
+instaladas:
+  titulo: Installed
+  filtro: Filter installed software
+  vacio: Nothing to show
+  quitar: Remove
+  conHuerfanas: Also remove dependencies nothing else needs
+  appimages: AppImages
+  appimagesNota: Portable files you integrated. They live in your folder, and the AppArmor profile closes the camera, the microphone and your credentials to them.
+  sumarAppimage: Integrate an AppImage
+  soltarAqui: Drop an .AppImage file here
+  ejecutar: Open
+  quitarAppimage: Remove
+  sinAppimages: No AppImage has been integrated
+  integrado: Integrated
+  suelto: In your folder, not integrated
+  integrar: Integrate
+  integrarNota: Copies it into the store folder and adds it to the application menu.
+actualizaciones:
+  titulo: Updates
+  ninguna: The system is up to date
+  ningunaNota: There is nothing to update.
+  actualizarTodo: Update everything
+  sincronizar: Check again
+  disponiblesOne: "{0} update available"
+  disponiblesOther: "{0} updates available"
+  actualizar: Update
+  desde: "from {0}"
+  hasta: "to {0}"
+repositorios:
+  titulo: Repositories
+  explicacion: This is where packages come from. Turning one off uninstalls nothing, but it stops offering its updates.
+  activo: On
+  inactivo: Off
+  protegido: Cannot be changed here
+  protegidoNota: Without this repository the system gets no security updates. It can still be edited by hand in /etc/pacman.conf.
+  servidores: Servers
+  lista: Mirror list
+  agregar: Add a repository
+  nombre: Name
+  servidor: Server
+  firma: Signature level
+  firmaNota: Required checks every package signature. Never checks nothing, which means trusting whoever serves it completely.
+  quitar: Remove
+  confirmarQuitar: "Remove {0}?"
+  confirmarQuitarNota: Packages you already installed stay installed. What is lost is where their updates come from.
+  agregado: Added from the store
+detalle:
+  instalar: Install
+  quitar: Remove
+  actualizar: Update
+  abrir: Open
+  instalado: Installed
+  version: Version
+  tamano: Installed size
+  descarga: Download
+  licencia: Licence
+  autor: Author
+  empaquetador: Packager
+  web: Project website
+  arquitectura: Architecture
+  dependencias: Dependencies
+  opcionales: Optional dependencies
+  requeridoPor: Needed by
+  construido: Built on
+  instaladoEl: Installed on
+  capturas: Screenshots
+  sinCapturas: This application published no screenshots.
+  votos: Votes
+  popularidad: Popularity
+  actualizadoEl: Updated on
+  verReceta: View the recipe
+  receta: This package's recipe
+  recetaNota: This is what will run on your machine to build it. Read it before going on.
+  compilarEInstalar: Build and install
+  capturaAnterior: Previous screenshot
+  capturaSiguiente: Next screenshot
+operacion:
+  previsualizacion: What will happen
+  seInstalan: Will be installed
+  seQuitan: Will be removed
+  seActualizan: Will be updated
+  descarga: To download
+  espacioSuma: Takes up
+  espacioResta: Frees up
+  conflictos: Cannot continue
+  confirmar: Confirm
+  enCurso: Working…
+  termino: Done
+  fallo: Could not be completed
+  verRegistro: Show the detail
+  ocultarRegistro: Hide the detail
+  registro: Operation detail
+  cancelar: Cancel
+  soloUna: A package operation is already running.
+fases:
+  resolviendo: Resolving dependencies
+  descargando: Downloading
+  verificando: Checking
+  instalando: Installing
+  quitando: Removing
+  terminando: Finishing
