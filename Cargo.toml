@@ -11,7 +11,7 @@ resolver = "2"
 members = ["protocol", "daemon", "src-tauri"]
 
 [workspace.package]
-version = "0.3.5"
+version = "0.3.6"
 edition = "2021"
 authors = ["Vasak Group", "Joaquin (Pato) Decima"]
 license = "MIT"
