@@ -171,6 +171,7 @@ describe('lo del AUR', () => {
 		const compilar = dialogo
 			.findAll('button')
 			.find((boton) => boton.text() === 'detalle.compilarEInstalar');
+		expect(compilar).toBeDefined();
 		await compilar?.trigger('click');
 		await asentar();
 
@@ -194,9 +195,14 @@ describe('lo del AUR', () => {
 			.get('[role="dialog"]')
 			.findAll('button')
 			.find((boton) => boton.text() === 'detalle.compilarEInstalar');
+		expect(compilar).toBeDefined();
 		await compilar?.trigger('click');
 		await asentar();
 
+		// Primero que la compilación haya arrancado de verdad: esta prueba
+		// afirma una ausencia, y sin esto pasaría sola el día que el botón deje
+		// de estar —que es justo uno de los cambios que tendría que atajar—.
+		expect(pedidos('instalar_del_aur')).toHaveLength(1);
 		expect(pedidos('previsualizar')).toHaveLength(0);
 	});
 });
