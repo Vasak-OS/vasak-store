@@ -8,6 +8,7 @@
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { onUnmounted, ref, watch } from 'vue';
+import CampoDeTexto from '@/components/ui/CampoDeTexto.vue';
 import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
 
 /** Cuánto se espera tras la última tecla. */
@@ -28,17 +29,31 @@ watch(texto, (ahora) => {
 	temporizador = setTimeout(() => emit('buscar', ahora), ESPERA);
 });
 
+/**
+ * Buscar ya, sin esperar.
+ *
+ * Cancela lo que hubiera pendiente: sin eso, apretar Enter dispara la búsqueda
+ * y doscientos milisegundos después el temporizador dispara **otra** con el
+ * mismo texto. Dos recorridos de quince mil paquetes y dos consultas al AUR
+ * para una sola tecla.
+ */
+function ahora() {
+	clearTimeout(temporizador);
+	emit('buscar', texto.value);
+}
+
 onUnmounted(() => clearTimeout(temporizador));
 </script>
 <template>
   <div class="flex flex-wrap items-center gap-3">
-    <input
-      v-model="texto"
-      type="search"
-      :placeholder="marcador ?? t('busqueda.marcador')"
-      :aria-label="marcador ?? t('busqueda.marcador')"
-      class="min-w-0 flex-1 rounded-corner-sm border border-ui-border-strong bg-ui-bg px-3 py-1.5 text-sm outline-none focus:border-primary"
-      @keydown.enter="emit('buscar', texto)">
+    <div class="min-w-0 flex-1">
+      <CampoDeTexto
+        v-model="texto"
+        type="search"
+        :placeholder="marcador ?? t('busqueda.marcador')"
+        :etiqueta="marcador ?? t('busqueda.marcador')"
+        @keydown.enter="ahora" />
+    </div>
     <label v-if="conAur" class="flex items-center gap-2 text-sm" :title="t('busqueda.incluirAurNota')">
       <InterruptorDeOpcion
         :valor="aur"

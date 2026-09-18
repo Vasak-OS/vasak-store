@@ -13,6 +13,14 @@
 
 use crate::{nombre_de_repositorio_valido, servidor_valido};
 
+/// El archivo de siempre.
+///
+/// Constante y no configurable a propósito: si alguien mueve la configuración
+/// de pacman, que esto falle es mejor que que escriba en el lugar equivocado.
+/// Está acá y no del lado del demonio porque la aplicación también lo lee —es
+/// legible por cualquiera— y las dos tienen que mirar el mismo archivo.
+pub const RUTA: &str = "/etc/pacman.conf";
+
 /// Los repositorios sin los cuales el sistema no se puede actualizar.
 ///
 /// No se pueden apagar ni quitar desde la tienda. Se puede a mano, editando el
@@ -209,6 +217,13 @@ pub fn agregar(
 }
 
 /// Saca el bloque de un repositorio del texto.
+///
+/// El bloque va desde su cabecera hasta la del siguiente, y se lleva **todo** lo
+/// que haya en el medio: claves, comentarios y líneas en blanco. Antes se
+/// borraban sólo las claves conocidas, y cualquier otra cosa —un `# lo puso el
+/// instalador` o una clave que pacman agregue el año que viene— cortaba el
+/// borrado ahí mismo y dejaba media configuración huérfana debajo del bloque
+/// anterior.
 pub fn quitar(texto: &str, nombre: &str) -> Result<String, String> {
     if !nombre_de_repositorio_valido(nombre) {
         return Err(format!("«{nombre}» no es un nombre de repositorio"));
@@ -230,10 +245,9 @@ pub fn quitar(texto: &str, nombre: &str) -> Result<String, String> {
                 continue;
             }
         }
-        if dentro && (es_clave_de_repositorio(contenido) || contenido.trim().is_empty()) {
+        if dentro {
             continue;
         }
-        dentro = false;
         salida.push_str(linea);
         salida.push('\n');
     }
@@ -384,6 +398,33 @@ Server = https://repo.vasak.net.ar/repo/$arch/$repo
         assert!(agregar(EJEMPLO, "propio", "https://x.org", "Nunca").is_err());
         // Y no acepta un nivel de firma inventado aunque contenga uno válido.
         assert!(agregar(EJEMPLO, "propio", "https://x.org", "Required Inventado").is_err());
+    }
+
+    #[test]
+    fn quitar_se_lleva_todo_el_bloque_aunque_tenga_cosas_raras() {
+        // Un comentario propio y una clave que no está en la lista de las
+        // conocidas: antes cortaban el borrado y dejaban el `Server` colgando
+        // debajo del bloque anterior, que es configuración de otro repositorio.
+        let texto = "\
+[core]
+Include = /etc/pacman.d/mirrorlist
+
+[propio]
+# Lo agregó el instalador.
+Usage = Sync Search
+ClaveQuePacmanAgregueElAnoQueViene = 1
+Server = https://ejemplo.org/x
+
+[otro]
+Server = https://otro.org/x
+";
+        let nuevo = quitar(texto, "propio").unwrap();
+        assert!(!nuevo.contains("ejemplo.org"), "quedó el Server: {nuevo}");
+        assert!(!nuevo.contains("Lo agregó el instalador"));
+        assert!(!nuevo.contains("ClaveQuePacmanAgregue"));
+        assert!(nuevo.contains("[core]"));
+        assert!(nuevo.contains("[otro]"));
+        assert!(nuevo.contains("otro.org"));
     }
 
     #[test]

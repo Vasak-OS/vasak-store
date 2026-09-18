@@ -19,6 +19,7 @@ secciones:
   instaladas: Instaladas
   actualizaciones: Actualizaciones
   repositorios: Repositorios
+  navegacion: Secciones de la tienda
 comun:
   cargando: Cargando…
   reintentar: Reintentar
@@ -28,6 +29,7 @@ comun:
   volver: Volver
   buscar: Buscar
   sinConexion: No hay conexión con el servicio de paquetes. La tienda puede mostrar y buscar, pero no instalar ni quitar nada.
+  noSePudoLeer: No se pudo leer
 busqueda:
   marcador: Buscar programas
   incluirAur: Incluir el AUR
@@ -77,6 +79,10 @@ instaladas:
   ejecutar: Abrir
   quitarAppimage: Quitar
   sinAppimages: No hay ningún AppImage integrado
+  integrado: Integrado
+  suelto: En tu carpeta, sin integrar
+  integrar: Integrar
+  integrarNota: Lo copia a la carpeta de la tienda y lo pone en el menú de aplicaciones.
 actualizaciones:
   titulo: Actualizaciones
   ninguna: El sistema está al día
@@ -134,6 +140,8 @@ detalle:
   receta: La receta de este paquete
   recetaNota: Esto es lo que se va a ejecutar en tu máquina para construirlo. Leelo antes de seguir.
   compilarEInstalar: Compilar e instalar
+  capturaAnterior: Captura anterior
+  capturaSiguiente: Captura siguiente
 operacion:
   previsualizacion: Lo que va a pasar
   seInstalan: Se instalan

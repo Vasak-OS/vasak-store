@@ -34,14 +34,14 @@ function mover(cuanto: number) {
         <button
           type="button"
           class="-translate-y-1/2 absolute top-1/2 left-2 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm"
-          :aria-label="t('comun.volver')"
+          :aria-label="t('detalle.capturaAnterior')"
           @click="mover(-1)">
           ‹
         </button>
         <button
           type="button"
           class="-translate-y-1/2 absolute top-1/2 right-2 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm"
-          :aria-label="t('detalle.capturas')"
+          :aria-label="t('detalle.capturaSiguiente')"
           @click="mover(1)">
           ›
         </button>

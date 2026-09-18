@@ -23,16 +23,33 @@ pub enum Origen {
 
 /// Cómo dibujar el ícono de algo.
 ///
-/// Dos maneras y no una porque son dos fuentes distintas: lo instalado tiene su
-/// ícono en el tema del escritorio —que sigue el tema que la persona eligió— y
-/// lo que no está instalado sólo tiene el del catálogo, que es un archivo.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[serde(tag = "tipo", content = "valor", rename_all = "kebab-case")]
-pub enum Icono {
-    /// Un nombre del tema de íconos. Lo resuelve el plugin de vicons.
-    Tema(String),
-    /// La ruta de un archivo en la caché, ya convertido a PNG.
-    Archivo(String),
+/// Van las dos fuentes juntas y en ese orden, no una u otra. El tema de íconos
+/// del escritorio es el que **se prefiere siempre**: es el que la persona
+/// eligió, el que se ve en el menú y en el lanzador, y el que cambia cuando
+/// cambia el tema. El archivo del catálogo es el respaldo para lo que el tema no
+/// tenga —lo que no está instalado, normalmente—, y viene ya convertido a PNG.
+///
+/// Los nombres del tema son varios y se prueban en orden porque los temas no se
+/// ponen de acuerdo en cómo se llama cada ícono: unos usan el `Icon=` del
+/// `.desktop`, otros el identificador de AppStream entero, y unos cuantos el
+/// nombre del paquete.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Default)]
+pub struct Icono {
+    /// Nombres a probar en el tema del sistema, del más probable al menos.
+    pub tema: Vec<String>,
+    /// La ruta del PNG en la caché, si el catálogo traía uno.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub archivo: Option<String>,
+}
+
+impl Icono {
+    /// Sólo del tema, sin respaldo en disco.
+    pub fn del_tema(nombre: &str) -> Icono {
+        Icono {
+            tema: vec![nombre.to_string(), "package-x-generic".to_string()],
+            archivo: None,
+        }
+    }
 }
 
 /// Un programa, con lo justo para una tarjeta de una lista.

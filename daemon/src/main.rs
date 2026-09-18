@@ -37,13 +37,23 @@ struct Tienda {
     ordenes: UnboundedSender<motor::Orden>,
     /// De dónde salen los identificadores de transacción.
     contador: AtomicU64,
-    /// Cuántas operaciones hay encoladas o en curso.
+    /// Si el motor de paquetes está tomado.
     ///
     /// El candado de pacman admite un solo dueño, así que dos transacciones a
     /// la vez no es algo que se pueda permitir y encolarlas en silencio sería
     /// peor: la segunda parecería colgada durante los minutos que tarde la
     /// primera. Se rechaza y se dice por qué.
+    ///
+    /// Se toma con `compare_exchange` y no mirando y sumando después: son dos
+    /// operaciones, y entre una y otra caben dos llamadas de D-Bus que vean cero
+    /// las dos. El bus atiende en varias tareas a la vez, así que no es teórico.
     en_curso: AtomicUsize,
+    /// Un candado para leer y volver a escribir `pacman.conf`.
+    ///
+    /// Sin él, dos cambios de repositorio que lleguen juntos leen el mismo
+    /// contenido y el segundo escribe encima del primero: el conmutador vuelve
+    /// solo y nadie entiende por qué.
+    archivo: tokio::sync::Mutex<()>,
     /// La conexión al bus, para poder preguntarle a polkit.
     ///
     /// Llega después de construir esto y por eso es un `OnceLock`: el objeto se
@@ -148,11 +158,11 @@ impl Tienda {
             }
         };
 
-        if self.en_curso.load(Ordering::SeqCst) > 0 {
-            return Err(FdoError::Failed(
-                "hay una operación de paquetes en curso".into(),
-            ));
-        }
+        // Previsualizar también toma el motor, y por lo tanto el candado de
+        // pacman. Se reserva igual que una transacción: si no se reservara,
+        // cualquiera podría encolar previsualizaciones sin límite y hacerle
+        // acumular trabajo a un proceso que corre como root.
+        let _reserva = self.reservar()?;
 
         let (responder, respuesta) = oneshot::channel();
         self.ordenes
@@ -172,6 +182,13 @@ impl Tienda {
     }
 
     /// Los repositorios de `pacman.conf`, encendidos y apagados. Devuelve JSON.
+    ///
+    /// Está acá por completitud del contrato —quien hable con el servicio no
+    /// tiene por qué saber dónde vive el archivo—, pero la tienda **no** lo
+    /// usa: `pacman.conf` es legible por cualquiera y la aplicación lo lee
+    /// sola. Despertar a un proceso con root para contestar qué dice un archivo
+    /// público sería al pedo, y además dejaba la pantalla vacía cuando el
+    /// servicio no estaba instalado.
     async fn repositorios(&self) -> zbus::fdo::Result<String> {
         let lista = repositorios::listar().map_err(FdoError::Failed)?;
         serde_json::to_string(&lista)
@@ -187,6 +204,7 @@ impl Tienda {
     ) -> zbus::fdo::Result<()> {
         self.permiso(&cabecera, ACCION_REPOSITORIOS).await?;
         self.reescribir(|texto| repositorios::cambiar_estado(texto, nombre, activo))
+            .await
     }
 
     /// Agrega un repositorio de terceros.
@@ -199,6 +217,7 @@ impl Tienda {
     ) -> zbus::fdo::Result<()> {
         self.permiso(&cabecera, ACCION_REPOSITORIOS).await?;
         self.reescribir(|texto| repositorios::agregar(texto, nombre, servidor, siglevel))
+            .await
     }
 
     /// Saca un repositorio.
@@ -209,6 +228,7 @@ impl Tienda {
     ) -> zbus::fdo::Result<()> {
         self.permiso(&cabecera, ACCION_REPOSITORIOS).await?;
         self.reescribir(|texto| repositorios::quitar(texto, nombre))
+            .await
     }
 
     /// Un paso de una operación. El segundo argumento es JSON.
@@ -239,19 +259,31 @@ impl Tienda {
         autorizacion::autorizar(conexion, quien, accion).await
     }
 
+    /// Toma el motor de paquetes, o dice que ya está tomado.
+    ///
+    /// Devuelve una guarda que lo suelta al soltarse. La previsualización la
+    /// usa así —reserva, pregunta, suelta—; una transacción en cambio lo
+    /// retiene hasta que llega su señal de terminada, y para eso se la olvida
+    /// con `mem::forget`.
+    fn reservar(&self) -> Result<Reserva<'_>, FdoError> {
+        self.en_curso
+            .compare_exchange(0, 1, Ordering::SeqCst, Ordering::SeqCst)
+            .map_err(|_| FdoError::Failed("hay una operación de paquetes en curso".into()))?;
+        Ok(Reserva {
+            en_curso: &self.en_curso,
+        })
+    }
+
     /// Manda una orden al motor con un identificador nuevo.
     fn encolar(&self, armar: impl FnOnce(String) -> motor::Orden) -> Result<String, FdoError> {
-        if self.en_curso.load(Ordering::SeqCst) > 0 {
-            return Err(FdoError::Failed(
-                "hay una operación de paquetes en curso".into(),
-            ));
-        }
+        let reserva = self.reservar()?;
         let id = format!("t{}", self.contador.fetch_add(1, Ordering::SeqCst));
-        self.en_curso.fetch_add(1, Ordering::SeqCst);
-        self.ordenes.send(armar(id.clone())).map_err(|_| {
-            self.en_curso.fetch_sub(1, Ordering::SeqCst);
-            FdoError::Failed("el motor de paquetes no está".into())
-        })?;
+        self.ordenes
+            .send(armar(id.clone()))
+            .map_err(|_| FdoError::Failed("el motor de paquetes no está".into()))?;
+        // La reserva no se suelta acá: la operación recién empieza, y quien la
+        // libera es la señal de terminada que el motor manda al acabar.
+        std::mem::forget(reserva);
         Ok(id)
     }
 
@@ -260,15 +292,30 @@ impl Tienda {
     /// Lectura y escritura pegadas, sin nada en el medio: cuanto más corto sea
     /// ese hueco, menos posibilidad de pisar un cambio que alguien haya hecho
     /// con un editor mientras tanto.
-    fn reescribir(
+    async fn reescribir(
         &self,
         transformar: impl FnOnce(&str) -> Result<String, String>,
     ) -> Result<(), FdoError> {
+        // El candado cubre la lectura y la escritura juntas. Dos cambios que
+        // lleguen a la vez leerían el mismo contenido, y el segundo pisaría al
+        // primero sin que nada lo dijera.
+        let _tomado = self.archivo.lock().await;
         let texto = std::fs::read_to_string(repositorios::RUTA).map_err(|e| {
             FdoError::Failed(format!("no se pudo leer {}: {e}", repositorios::RUTA))
         })?;
         let nuevo = transformar(&texto).map_err(FdoError::Failed)?;
         repositorios::escribir(&nuevo).map_err(FdoError::Failed)
+    }
+}
+
+/// El motor de paquetes tomado. Al soltarse, lo libera.
+struct Reserva<'a> {
+    en_curso: &'a AtomicUsize,
+}
+
+impl Drop for Reserva<'_> {
+    fn drop(&mut self) {
+        self.en_curso.store(0, Ordering::SeqCst);
     }
 }
 
@@ -316,6 +363,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
                 ordenes,
                 contador: AtomicU64::new(1),
                 en_curso: AtomicUsize::new(0),
+                archivo: tokio::sync::Mutex::new(()),
                 conexion: OnceLock::new(),
             },
         )?
@@ -366,7 +414,7 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
             }
             motor::Novedad::Terminada { id, error } => {
                 let interfaz = servidor.interface::<_, Tienda>(RUTA).await?;
-                interfaz.get().await.en_curso.fetch_sub(1, Ordering::SeqCst);
+                interfaz.get().await.en_curso.store(0, Ordering::SeqCst);
                 if let Some(razon) = &error {
                     tracing::warn!("la operación {id} falló: {razon}");
                 }
@@ -393,6 +441,54 @@ mod tests {
         assert!(comprobar_nombres(&malos).is_err());
     }
 
+    fn tienda_de_prueba() -> Tienda {
+        let (ordenes, recibidas) = unbounded_channel();
+        // El extremo de recepción se deja vivo: sin él, `send` falla y la
+        // prueba mediría otra cosa.
+        std::mem::forget(recibidas);
+        Tienda {
+            ordenes,
+            contador: AtomicU64::new(1),
+            en_curso: AtomicUsize::new(0),
+            archivo: tokio::sync::Mutex::new(()),
+            conexion: OnceLock::new(),
+        }
+    }
+
+    #[test]
+    fn el_motor_lo_toma_uno_solo() {
+        let tienda = tienda_de_prueba();
+
+        let primera = tienda.reservar().expect("la primera tiene que entrar");
+        assert!(
+            tienda.reservar().is_err(),
+            "dos reservas a la vez: el candado de pacman no lo aguanta"
+        );
+
+        drop(primera);
+        assert!(
+            tienda.reservar().is_ok(),
+            "soltar la reserva tiene que dejar pasar a la siguiente"
+        );
+    }
+
+    #[test]
+    fn una_transaccion_encolada_deja_el_motor_tomado() {
+        // La reserva de una transacción no se suelta al volver del método: la
+        // libera la señal de terminada, minutos después.
+        let tienda = tienda_de_prueba();
+        let id = tienda
+            .encolar(|id| motor::Orden::Actualizar { id })
+            .expect("la primera tiene que entrar");
+        assert_eq!(id, "t1");
+        assert!(
+            tienda
+                .encolar(|id| motor::Orden::Actualizar { id })
+                .is_err(),
+            "se encoló una segunda transacción con una en curso"
+        );
+    }
+
     /// La interfaz es el contrato con la aplicación: si un método cambia de
     /// nombre o de firma, la ventana deja de funcionar y no lo dice hasta que
     /// alguien la abre. Esto lo convierte en un fallo de compilación.
@@ -400,13 +496,7 @@ mod tests {
     fn la_interfaz_exporta_lo_que_la_aplicacion_espera() {
         use zbus::object_server::Interface;
 
-        let (ordenes, _recibidas) = unbounded_channel();
-        let tienda = Tienda {
-            ordenes,
-            contador: AtomicU64::new(1),
-            en_curso: AtomicUsize::new(0),
-            conexion: OnceLock::new(),
-        };
+        let tienda = tienda_de_prueba();
 
         let mut xml = String::new();
         tienda.introspect_to_writer(&mut xml, 0);

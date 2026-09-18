@@ -82,6 +82,13 @@ watch(
 
     <IndicadorDeCarga v-if="cargando" />
     <EstadoVacio
+      v-else-if="falla"
+      icono="dialog-error"
+      :titulo="t('comun.noSePudoLeer')"
+      :nota="falla">
+      <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
+    </EstadoVacio>
+    <EstadoVacio
       v-else-if="lista.length === 0"
       icono="emblem-ok"
       :titulo="t('actualizaciones.ninguna')"

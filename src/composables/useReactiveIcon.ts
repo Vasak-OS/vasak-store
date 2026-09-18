@@ -31,6 +31,17 @@ function useThemeListener() {
 	return themeVersion;
 }
 
+/**
+ * La versión del tema de íconos, que cambia cuando la persona cambia de tema.
+ *
+ * Se expone para los componentes que resuelven un ícono con su propia lógica
+ * —probar varios nombres, caer a un archivo— y no pueden usar `useReactiveIcon`,
+ * que asume un solo intento.
+ */
+export function useThemeVersion() {
+	return useThemeListener();
+}
+
 export function useReactiveIcon(fetcher: () => Promise<string>) {
 	const source = ref('');
 	const version = useThemeListener();

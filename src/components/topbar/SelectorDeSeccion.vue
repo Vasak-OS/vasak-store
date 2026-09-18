@@ -2,18 +2,19 @@
 /**
  * Las cuatro secciones.
  *
- * Es un grupo de botones y no una lista de enlaces sueltos porque son
- * excluyentes: en cualquier momento se está en una y sólo una. Va con
- * `role="tablist"` para que un lector de pantalla lo anuncie así y no como
- * cuatro botones sin relación, y el que está activo lleva `aria-selected`.
+ * Es un `<nav>` con enlaces y no un grupo de pestañas, aunque se parezca a uno:
+ * cada uno **cambia la ruta** y lo que hay debajo es una pantalla entera, no un
+ * panel asociado. Anunciarlo como pestañas obliga a un lector de pantalla a
+ * buscar un `tabpanel` que no existe y hace esperar el recorrido con flechas que
+ * las pestañas de verdad tienen. La sección en la que se está va con
+ * `aria-current="page"`, que es lo que corresponde a una navegación.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 
 const { t } = useI18n();
 const ruta = useRoute();
-const router = useRouter();
 
 const SECCIONES = ['descubrir', 'instaladas', 'actualizaciones', 'repositorios'] as const;
 
@@ -40,27 +41,24 @@ const props = defineProps<{ pendientes?: number }>();
 const pendientes = computed(() => props.pendientes ?? 0);
 </script>
 <template>
-  <div
+  <nav
     class="flex items-center gap-1 rounded-corner border border-ui-border bg-ui-surface/60 p-0.5"
-    role="tablist"
-    :aria-label="t('secciones.descubrir')">
-    <button
+    :aria-label="t('secciones.navegacion')">
+    <RouterLink
       v-for="seccion in SECCIONES"
       :key="seccion"
-      type="button"
-      role="tab"
-      :aria-selected="activa === seccion"
+      :to="{ name: seccion }"
+      :aria-current="activa === seccion ? 'page' : undefined"
       class="flex items-center gap-1.5 rounded-corner-sm px-3 py-1 text-sm transition-colors"
       :class="activa === seccion
         ? 'bg-primary text-tx-on-primary'
-        : 'hover:bg-ui-bg/60'"
-      @click="router.push({ name: seccion })">
+        : 'hover:bg-ui-bg/60'">
       {{ t(`secciones.${seccion}`) }}
       <span
         v-if="seccion === 'actualizaciones' && pendientes > 0"
         class="rounded-corner-sm bg-status-warning px-1.5 text-tx-on-primary text-xs">
         {{ pendientes }}
       </span>
-    </button>
-  </div>
+    </RouterLink>
+  </nav>
 </template>

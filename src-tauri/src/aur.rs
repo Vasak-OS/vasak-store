@@ -102,7 +102,7 @@ fn tarjeta(paquete: raur::Package) -> Tarjeta {
         instalada: false,
         actualizable: None,
         tamano: 0,
-        icono: Icono::Tema("package-x-generic".to_string()),
+        icono: Icono::del_tema("package-x-generic"),
         categorias: Vec::new(),
         votos: Some(paquete.num_votes),
         popularidad: Some(paquete.popularity),
@@ -343,19 +343,40 @@ async fn correr(
         .spawn()
         .map_err(|e| format!("no se pudo ejecutar {programa}: {e}"))?;
 
-    let salida = hijo.stdout.take();
-    let errores = hijo.stderr.take();
+    // Las dos salidas se leen **a la vez**. De a una se traba: mientras se
+    // vacía la estándar, la de error llena su tubería de 64 KB y el proceso
+    // queda bloqueado escribiendo en ella para siempre. `makepkg` escribe casi
+    // todo por la de error, así que era cuestión de compilar algo grande.
+    let mut salida = hijo.stdout.take().map(|s| BufReader::new(s).lines());
+    let mut errores = hijo.stderr.take().map(|s| BufReader::new(s).lines());
 
-    if let Some(salida) = salida {
-        let mut lineas = BufReader::new(salida).lines();
-        while let Ok(Some(linea)) = lineas.next_line().await {
-            registrar(linea);
+    loop {
+        let de_salida = async {
+            match salida.as_mut() {
+                Some(lineas) => lineas.next_line().await.ok().flatten(),
+                None => std::future::pending().await,
+            }
+        };
+        let de_errores = async {
+            match errores.as_mut() {
+                Some(lineas) => lineas.next_line().await.ok().flatten(),
+                None => std::future::pending().await,
+            }
+        };
+
+        tokio::select! {
+            linea = de_salida => match linea {
+                Some(linea) => registrar(linea),
+                None => salida = None,
+            },
+            linea = de_errores => match linea {
+                Some(linea) => registrar(linea),
+                None => errores = None,
+            },
         }
-    }
-    if let Some(errores) = errores {
-        let mut lineas = BufReader::new(errores).lines();
-        while let Ok(Some(linea)) = lineas.next_line().await {
-            registrar(linea);
+
+        if salida.is_none() && errores.is_none() {
+            break;
         }
     }
 

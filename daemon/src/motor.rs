@@ -17,8 +17,7 @@
 use std::collections::HashMap;
 
 use alpm::{
-    Alpm, AnyEvent, AnyQuestion, DownloadEvent, Event, LogLevel, Progress, Question, SigLevel,
-    TransFlag,
+    Alpm, AnyEvent, AnyQuestion, DownloadEvent, Event, LogLevel, Progress, Question, TransFlag,
 };
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
 use tokio::sync::oneshot;
@@ -347,12 +346,19 @@ fn ejecutar(orden: Orden, novedades: &UnboundedSender<Novedad>) -> Result<(), St
             alpm.trans_init(TransFlag::NONE)
                 .map_err(|e| format!("no se pudo empezar la transacción: {e}"))?;
             let resultado = (|| {
+                // El nivel de firma de los archivos locales, el mismo que
+                // usaría pacman con `-U`. `USE_DEFAULT` **no** es eso: es el
+                // marcador de «todavía sin resolver», y con él la comprobación
+                // de firma de un paquete que acabamos de compilar queda en
+                // manos de lo que libalpm decida por omisión en vez de lo que
+                // dice `/etc/pacman.conf`.
+                let nivel = alpm.local_file_siglevel();
                 for ruta in &rutas {
                     // `full = true` lee el paquete entero, no sólo la cabecera:
                     // sin eso la transacción no conoce sus archivos y la
                     // comprobación de conflictos no puede hacerse.
                     let paquete = alpm
-                        .pkg_load(ruta.as_str(), true, SigLevel::USE_DEFAULT)
+                        .pkg_load(ruta.as_str(), true, nivel)
                         .map_err(|e| format!("no se pudo leer {ruta}: {e}"))?;
                     alpm.trans_add_pkg(paquete)
                         .map_err(|e| format!("no se pudo agregar {ruta}: {}", e.error))?;

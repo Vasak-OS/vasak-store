@@ -112,8 +112,16 @@ impl Catalogo {
             .map(|n| n.to_string_lossy().to_string())
             .unwrap_or_default();
 
+        // Los íconos van al lado del catálogo: `…/xml/extra.xml.gz` tiene los
+        // suyos en `…/icons/<origen>/<tamaño>/`.
+        let raiz_de_iconos = ruta
+            .parent()
+            .and_then(|xml| xml.parent())
+            .map(|base| base.join("icons"))
+            .unwrap_or_else(|| PathBuf::from("/usr/share/swcatalog/icons"));
+
         let lector = BufReader::new(GzDecoder::new(archivo));
-        for ficha in analizar(lector, idioma, &origen) {
+        for ficha in analizar(lector, idioma, &origen, &raiz_de_iconos) {
             if ficha.paquete.is_empty() {
                 continue;
             }
@@ -145,7 +153,12 @@ impl Catalogo {
 /// `extra.xml.gz` declara `origin="archlinux-arch-extra"` y sus íconos están en
 /// `icons/archlinux-arch-extra/`. El nombre del archivo no alcanza, así que se
 /// lee del atributo y se usa el del archivo sólo como respaldo.
-fn analizar<R: std::io::BufRead>(lector: R, idioma: &str, respaldo: &str) -> Vec<Ficha> {
+fn analizar<R: std::io::BufRead>(
+    lector: R,
+    idioma: &str,
+    respaldo: &str,
+    raiz_de_iconos: &Path,
+) -> Vec<Ficha> {
     let mut xml = Reader::from_reader(lector);
     xml.config_mut().trim_text(true);
 
@@ -161,6 +174,7 @@ fn analizar<R: std::io::BufRead>(lector: R, idioma: &str, respaldo: &str) -> Vec
     // el genérico que viene después.
     let mut traducido: HashMap<String, bool> = HashMap::new();
     let mut en_descripcion = false;
+    let mut lang_descripcion: Option<String> = None;
     let mut captura: Option<Captura> = None;
     let mut tipo_de_imagen = String::new();
     let mut tipo_de_url = String::new();
@@ -182,7 +196,13 @@ fn analizar<R: std::io::BufRead>(lector: R, idioma: &str, respaldo: &str) -> Vec
                         traducido.clear();
                         en_descripcion = false;
                     }
-                    "description" => en_descripcion = true,
+                    "description" => {
+                        en_descripcion = true;
+                        // El `xml:lang` va en `<description>`, no en cada
+                        // `<p>`: se guarda acá porque cuando se lea el párrafo
+                        // el atributo ya no está a la vista.
+                        lang_descripcion = lang.clone();
+                    }
                     "icon" => {
                         let tipo = atributo(&e, "type").unwrap_or_default();
                         elemento = format!("icon:{tipo}");
@@ -236,21 +256,50 @@ fn analizar<R: std::io::BufRead>(lector: R, idioma: &str, respaldo: &str) -> Vec
                     "pkgname" => ficha.paquete = valor,
                     "name" if aceptar("name", &mut traducido) => ficha.nombre = valor,
                     "summary" if aceptar("summary", &mut traducido) => ficha.resumen = valor,
-                    "p" if en_descripcion && aceptar("desc", &mut traducido) => {
-                        if !ficha.descripcion.is_empty() {
-                            ficha.descripcion.push_str("\n\n");
+                    "p" if en_descripcion => {
+                        // La descripción son varios párrafos, así que se suman;
+                        // pero cuando llega la primera en el idioma bueno hay
+                        // que **tirar** lo acumulado en el genérico, o quedan
+                        // los dos idiomas pegados uno abajo del otro. Eso es lo
+                        // que pasaba: la ficha de una aplicación traducida
+                        // mostraba el texto en español y después otra vez en
+                        // inglés.
+                        let del_idioma = lang_descripcion
+                            .as_deref()
+                            .is_some_and(|l| l.starts_with(idioma));
+                        let primera_traducida =
+                            del_idioma && !traducido.get("desc").copied().unwrap_or(false);
+                        if primera_traducida {
+                            ficha.descripcion.clear();
                         }
-                        ficha.descripcion.push_str(&valor);
+                        let acepta = match lang_descripcion.as_deref() {
+                            Some(l) if l.starts_with(idioma) => {
+                                traducido.insert("desc".to_string(), true);
+                                true
+                            }
+                            Some(_) => false,
+                            None => !traducido.get("desc").copied().unwrap_or(false),
+                        };
+                        if acepta {
+                            if !ficha.descripcion.is_empty() {
+                                ficha.descripcion.push_str("\n\n");
+                            }
+                            ficha.descripcion.push_str(&valor);
+                        }
                     }
                     "category" => ficha.categorias.push(valor),
                     "icon:stock" => ficha.icono = Some(valor),
                     "icon:cached" => {
-                        // El catálogo nombra el archivo; el directorio sale del
-                        // origen y del tamaño. Se pide el de 64, que es el que
-                        // siempre está, y se deja que `iconos.rs` busque uno
-                        // más grande si existe.
+                        // El catálogo nombra el archivo; el directorio sale de
+                        // dónde estaba el catálogo, del origen y del tamaño.
+                        //
+                        // La raíz se deriva del archivo que se está leyendo y no
+                        // está escrita fija: los catálogos que genera
+                        // `appstreamcli` viven en `/var/cache/swcatalog` con sus
+                        // íconos al lado, y con la ruta fija se los buscaba en
+                        // `/usr/share`, donde no están.
                         ficha.icono_archivo = Some(
-                            PathBuf::from("/usr/share/swcatalog/icons")
+                            raiz_de_iconos
                                 .join(&origen)
                                 .join("64x64")
                                 .join(&valor)
@@ -287,7 +336,10 @@ fn analizar<R: std::io::BufRead>(lector: R, idioma: &str, respaldo: &str) -> Vec
                             fichas.push(ficha);
                         }
                     }
-                    "description" => en_descripcion = false,
+                    "description" => {
+                        en_descripcion = false;
+                        lang_descripcion = None;
+                    }
                     "screenshot" => {
                         if let (Some(ficha), Some(c)) = (actual.as_mut(), captura.take()) {
                             if !c.url.is_empty() {
@@ -488,6 +540,9 @@ mod tests {
   <summary>OPL3 synthesizer</summary>
   <summary xml:lang="es">Sintetizador OPL3</summary>
   <description>
+    <p>A standalone synthesizer</p>
+  </description>
+  <description xml:lang="es">
     <p>Un sintetizador independiente</p>
   </description>
   <pkgname>adljack</pkgname>
@@ -515,7 +570,12 @@ mod tests {
 "#;
 
     fn muestra(idioma: &str) -> Vec<Ficha> {
-        analizar(MUESTRA.as_bytes(), idioma, "respaldo")
+        analizar(
+            MUESTRA.as_bytes(),
+            idioma,
+            "respaldo",
+            Path::new("/usr/share/swcatalog/icons"),
+        )
     }
 
     #[test]
@@ -527,6 +587,23 @@ mod tests {
         assert_eq!(adljack.licencia.as_deref(), Some("GPL-3.0"));
         assert_eq!(adljack.categorias, vec!["AudioVideo", "Midi"]);
         assert_eq!(adljack.icono.as_deref(), Some("adljack"));
+    }
+
+    #[test]
+    fn la_descripcion_traducida_reemplaza_a_la_otra_y_no_se_le_suma() {
+        // Pegadas una abajo de la otra, la ficha mostraba el texto dos veces:
+        // en español y después en inglés.
+        let f = muestra("es")
+            .into_iter()
+            .find(|f| f.paquete == "adljack")
+            .unwrap();
+        assert_eq!(f.descripcion, "Un sintetizador independiente");
+
+        let f = muestra("en")
+            .into_iter()
+            .find(|f| f.paquete == "adljack")
+            .unwrap();
+        assert_eq!(f.descripcion, "A standalone synthesizer");
     }
 
     #[test]

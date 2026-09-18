@@ -95,12 +95,16 @@ pub async fn buscar(
             let suman: Vec<Tarjeta> = del_aur
                 .into_iter()
                 .filter(|t| !ya_estan.contains(&t.nombre))
-                .take(limite)
                 .collect();
             pagina.total += suman.len();
             pagina.resultados.extend(suman);
         }
     }
+
+    // El límite se aplica al final y no a cada fuente: pedir sesenta y recibir
+    // ciento veinte —sesenta de cada lado— es lo que hacía antes, y la lista
+    // terminaba con el doble de lo que se pidió.
+    pagina.resultados.truncate(limite);
 
     Ok(pagina)
 }
@@ -296,9 +300,27 @@ async fn compilar_e_instalar(
     Ok(())
 }
 
+/// Los repositorios configurados, leyendo `pacman.conf` acá mismo.
+///
+/// No pasa por el demonio, y eso es el arreglo de un error de diseño: pasaba, y
+/// entonces la pantalla se veía **vacía** en cualquier máquina sin el servicio
+/// instalado. `pacman.conf` es legible por cualquiera; despertar a un proceso
+/// con root para que cuente qué dice era pedirle permiso a alguien para mirar
+/// algo público. Escribir sí sigue siendo del demonio, que es donde hace falta.
 #[tauri::command]
-pub async fn repositorios(estado: State<'_, Estado>) -> Result<Vec<Repositorio>, String> {
-    estado.servicio()?.repositorios().await
+pub async fn repositorios() -> Result<Vec<Repositorio>, String> {
+    tauri::async_runtime::spawn_blocking(|| {
+        let texto =
+            std::fs::read_to_string(vasak_store_protocol::repositorios::RUTA).map_err(|e| {
+                format!(
+                    "no se pudo leer {}: {e}",
+                    vasak_store_protocol::repositorios::RUTA
+                )
+            })?;
+        Ok(vasak_store_protocol::repositorios::analizar(&texto))
+    })
+    .await
+    .map_err(|e| format!("no se pudo leer la configuración: {e}"))?
 }
 
 #[tauri::command]
@@ -356,15 +378,18 @@ pub async fn integrar_appimage(
 }
 
 #[tauri::command]
-pub async fn quitar_appimage(estado: State<'_, Estado>, id: String) -> Result<(), String> {
-    appimage::quitar(&id, &estado.datos, &estado.inicio)
+pub async fn quitar_appimage(estado: State<'_, Estado>, ruta: String) -> Result<(), String> {
+    appimage::quitar(&ruta, &estado.datos, &estado.inicio)
 }
 
-/// Arranca un AppImage administrado.
+/// Arranca un AppImage.
+///
+/// Se identifica por ruta y no por nombre porque ahora la lista incluye los que
+/// ya estaban en la carpeta de la persona, que no viven en el directorio de la
+/// tienda. La comprobación de que esté bajo `$HOME` la hace `ruta_ejecutable`.
 #[tauri::command]
-pub async fn ejecutar_appimage(estado: State<'_, Estado>, id: String) -> Result<(), String> {
-    let ruta = appimage::ruta_de(&id, &estado.datos)
-        .ok_or_else(|| format!("no hay ningún AppImage llamado {id}"))?;
+pub async fn ejecutar_appimage(estado: State<'_, Estado>, ruta: String) -> Result<(), String> {
+    let ruta = appimage::ruta_ejecutable(&ruta, &estado.inicio)?;
     std::process::Command::new(&ruta)
         .stdin(std::process::Stdio::null())
         .stdout(std::process::Stdio::null())

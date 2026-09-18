@@ -9,6 +9,8 @@
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { onMounted, ref } from 'vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
+import CampoDeTexto from '@/components/ui/CampoDeTexto.vue';
+import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
 import ModalBase from '@/components/ui/ModalBase.vue';
@@ -26,6 +28,9 @@ const { t } = useI18n();
 const lista = ref<Repositorio[]>([]);
 const cargando = ref(true);
 const falla = ref('');
+/** El error de la lectura, que deja la pantalla sin nada que mostrar. */
+const noSeLeyo = ref('');
+const formulario = ref<HTMLFormElement | null>(null);
 const agregando = ref(false);
 const nuevo = ref({ nombre: '', servidor: '', siglevel: 'Required DatabaseOptional' });
 
@@ -88,6 +93,13 @@ onMounted(cargar);
     <p v-if="falla" class="text-sm text-status-error">{{ falla }}</p>
 
     <IndicadorDeCarga v-if="cargando" />
+    <EstadoVacio
+      v-else-if="noSeLeyo"
+      icono="dialog-error"
+      :titulo="t('comun.noSePudoLeer')"
+      :nota="noSeLeyo">
+      <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
+    </EstadoVacio>
     <ul v-else class="flex flex-col gap-2">
       <li
         v-for="repositorio in lista"
@@ -126,34 +138,32 @@ onMounted(cargar);
     </ul>
 
     <ModalBase :abierto="agregando" :titulo="t('repositorios.agregar')" @cerrar="agregando = false">
-      <form class="flex flex-col gap-3" @submit.prevent="agregar">
+      <form ref="formulario" class="flex flex-col gap-3" @submit.prevent="agregar">
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.nombre') }}
-          <input
-            v-model="nuevo.nombre"
-            required
-            class="rounded-corner-sm border border-ui-border-strong bg-ui-bg px-2 py-1 outline-none focus:border-primary">
+          <CampoDeTexto v-model="nuevo.nombre" required :etiqueta="t('repositorios.nombre')" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.servidor') }}
-          <input
+          <CampoDeTexto
             v-model="nuevo.servidor"
             required
+            mono
             placeholder="https://…/$arch/$repo"
-            class="rounded-corner-sm border border-ui-border-strong bg-ui-bg px-2 py-1 outline-none focus:border-primary">
+            :etiqueta="t('repositorios.servidor')" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.firma') }}
-          <input
-            v-model="nuevo.siglevel"
-            required
-            class="rounded-corner-sm border border-ui-border-strong bg-ui-bg px-2 py-1 outline-none focus:border-primary">
+          <CampoDeTexto v-model="nuevo.siglevel" required :etiqueta="t('repositorios.firma')" />
           <span class="text-tx-muted text-xs leading-relaxed">{{ t('repositorios.firmaNota') }}</span>
         </label>
       </form>
       <template #pie>
         <BotonAccion @click="agregando = false">{{ t('comun.cancelar') }}</BotonAccion>
-        <BotonAccion tono="principal" @click="agregar">{{ t('comun.aceptar') }}</BotonAccion>
+        <!-- Por `requestSubmit` y no llamando a `agregar` directo: así los
+             campos obligatorios se validan y el navegador señala el que falta,
+             en vez de mandar un formulario vacío al servicio. -->
+        <BotonAccion tono="principal" @click="enviar">{{ t('comun.aceptar') }}</BotonAccion>
       </template>
     </ModalBase>
   </div>

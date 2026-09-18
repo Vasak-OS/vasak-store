@@ -85,6 +85,11 @@ onMounted(correr);
 
     <IndicadorDeCarga v-if="cargando" />
     <EstadoVacio
+      v-else-if="falla"
+      icono="dialog-error"
+      :titulo="t('comun.noSePudoLeer')"
+      :nota="falla" />
+    <EstadoVacio
       v-else-if="visibles.length === 0"
       icono="system-search"
       :titulo="t('busqueda.sinResultados')"

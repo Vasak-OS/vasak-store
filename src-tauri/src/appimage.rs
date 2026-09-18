@@ -35,6 +35,12 @@ pub struct AppImage {
     pub integrado: i64,
     /// Si el `.desktop` que lo pone en el menú existe.
     pub en_el_menu: bool,
+    /// Si vive en el directorio de la tienda, o sea si lo integramos nosotros.
+    ///
+    /// Los que no —los que estaban en la carpeta de la persona desde antes— se
+    /// listan igual y se pueden abrir; lo que no se puede es borrarlos, que no
+    /// es asunto de la tienda.
+    pub administrado: bool,
 }
 
 impl AppImage {
@@ -56,7 +62,7 @@ impl AppImage {
             tamano: self.tamano as i64,
             // Genérico y no el de la aplicación: sacar el ícono de adentro del
             // AppImage es ejecutarlo. Ver el comentario de arriba.
-            icono: crate::tipos::Icono::Tema("application-x-executable".to_string()),
+            icono: crate::tipos::Icono::del_tema("application-x-executable"),
             categorias: Vec::new(),
             votos: None,
             popularidad: None,
@@ -77,37 +83,93 @@ pub fn directorio_del_menu(inicio: &Path) -> PathBuf {
     inicio.join(".local/share/applications")
 }
 
-/// Los que están integrados.
+/// Hasta dónde se busca dentro de la carpeta de la persona.
+///
+/// Tres niveles alcanzan para `~/Aplicaciones`, `~/Descargas` y
+/// `~/Apps/loquesea`, que es donde la gente los deja. Recorrer el hogar entero
+/// sería caro y encontraría copias de seguridad y árboles de proyectos.
+const HONDURA: usize = 3;
+
+/// Los AppImage que hay: los que integramos y los que ya estaban.
+///
+/// Listar sólo los nuestros era lo que hacía que la sección se viera vacía en
+/// una máquina con AppImage adentro: la persona los ve en su carpeta y la
+/// tienda decía que no había ninguno.
 pub fn listar(datos: &Path, inicio: &Path) -> Vec<AppImage> {
-    let Ok(entradas) = std::fs::read_dir(directorio(datos)) else {
+    let propio = directorio(datos);
+    let mut lista: Vec<AppImage> = Vec::new();
+    let mut vistos: Vec<PathBuf> = Vec::new();
+
+    for ruta in buscar(&propio, HONDURA)
+        .into_iter()
+        .chain(buscar(inicio, HONDURA))
+    {
+        if vistos.contains(&ruta) {
+            continue;
+        }
+        vistos.push(ruta.clone());
+        if let Some(appimage) = mirar(&ruta, &propio, inicio) {
+            lista.push(appimage);
+        }
+    }
+
+    lista.sort_by(|a, b| {
+        // Los integrados primero: son los que la tienda administra y los que
+        // tienen acciones de verdad.
+        b.administrado
+            .cmp(&a.administrado)
+            .then_with(|| a.titulo.to_lowercase().cmp(&b.titulo.to_lowercase()))
+    });
+    lista
+}
+
+/// Los `.AppImage` que cuelgan de un directorio, hasta cierta hondura.
+///
+/// Se saltean los directorios ocultos: adentro están las cachés, los perfiles
+/// de los navegadores y la papelera, y ninguno es un lugar donde alguien haya
+/// dejado un programa a propósito.
+fn buscar(raiz: &Path, hondura: usize) -> Vec<PathBuf> {
+    let Ok(entradas) = std::fs::read_dir(raiz) else {
         return Vec::new();
     };
-    let mut lista: Vec<AppImage> = entradas
-        .flatten()
-        .filter_map(|entrada| {
-            let ruta = entrada.path();
-            if !es_appimage(&ruta) {
-                return None;
-            }
-            let metadatos = entrada.metadata().ok()?;
-            let id = identificador(&ruta)?;
-            Some(AppImage {
-                titulo: titulo_de(&id),
-                en_el_menu: archivo_de_menu(inicio, &id).is_file(),
-                id,
-                ruta: ruta.to_string_lossy().to_string(),
-                tamano: metadatos.len(),
-                integrado: metadatos
-                    .modified()
-                    .ok()
-                    .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-                    .map(|d| d.as_secs() as i64)
-                    .unwrap_or(0),
-            })
-        })
-        .collect();
-    lista.sort_by(|a, b| a.titulo.to_lowercase().cmp(&b.titulo.to_lowercase()));
-    lista
+    let mut encontrados = Vec::new();
+
+    for entrada in entradas.flatten() {
+        let ruta = entrada.path();
+        let Ok(tipo) = entrada.file_type() else {
+            continue;
+        };
+        let oculto = entrada.file_name().to_string_lossy().starts_with('.');
+
+        if tipo.is_dir() && hondura > 0 && !oculto {
+            encontrados.extend(buscar(&ruta, hondura - 1));
+        } else if tipo.is_file() && es_appimage(&ruta) {
+            encontrados.push(ruta);
+        }
+    }
+
+    encontrados
+}
+
+/// Arma la ficha de un archivo.
+fn mirar(ruta: &Path, propio: &Path, inicio: &Path) -> Option<AppImage> {
+    let metadatos = std::fs::metadata(ruta).ok()?;
+    let id = identificador(ruta)?;
+    let administrado = ruta.parent() == Some(propio);
+    Some(AppImage {
+        titulo: titulo_de(&id),
+        en_el_menu: administrado && archivo_de_menu(inicio, &id).is_file(),
+        id,
+        ruta: ruta.to_string_lossy().to_string(),
+        tamano: metadatos.len(),
+        integrado: metadatos
+            .modified()
+            .ok()
+            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|d| d.as_secs() as i64)
+            .unwrap_or(0),
+        administrado,
+    })
 }
 
 /// Si el archivo tiene pinta de AppImage.
@@ -121,13 +183,23 @@ pub fn es_appimage(ruta: &Path) -> bool {
 }
 
 /// El identificador de un archivo: su nombre sin la extensión, saneado.
-///
-/// Se sanea porque este texto termina siendo parte de un nombre de archivo
-/// —el `.desktop`— y porque llega desde la ventana. Un nombre con `/` o con
-/// `..` escribiría fuera del directorio del menú.
 pub fn identificador(ruta: &Path) -> Option<String> {
-    let base = ruta.file_stem()?.to_string_lossy().to_string();
-    let saneado: String = base
+    sanear(&ruta.file_stem()?.to_string_lossy())
+}
+
+/// Deja un texto en condiciones de ser parte de un nombre de archivo.
+///
+/// Hace falta porque el identificador termina en el nombre del `.desktop` y
+/// porque llega desde la ventana: uno con `/` o con `..` escribiría fuera del
+/// directorio del menú.
+///
+/// Va aparte de `identificador` y no adentro, que es como estaba: pasarle un
+/// identificador ya hecho a `identificador` le aplicaba `file_stem` de nuevo, y
+/// eso le come lo que haya después del último punto. `Obsidian_1.5.3` se
+/// convertía en `Obsidian_1.5`, así que quitar o abrir un AppImage con la
+/// versión en el nombre —o sea casi todos— no encontraba el archivo.
+pub fn sanear(nombre: &str) -> Option<String> {
+    let saneado: String = nombre
         .chars()
         .map(|c| {
             if c.is_ascii_alphanumeric() || matches!(c, '-' | '_' | '.') {
@@ -194,6 +266,7 @@ pub fn integrar(origen: &Path, datos: &Path, inicio: &Path) -> Result<AppImage, 
             .duration_since(std::time::UNIX_EPOCH)
             .map(|d| d.as_secs() as i64)
             .unwrap_or(0),
+        administrado: true,
     })
 }
 
@@ -228,12 +301,14 @@ pub fn contenido_desktop(destino: &Path, id: &str) -> String {
 }
 
 /// Saca un AppImage y su entrada del menú.
-pub fn quitar(id: &str, datos: &Path, inicio: &Path) -> Result<(), String> {
-    let id = identificador(Path::new(id)).ok_or("identificador inválido")?;
-    let archivo = directorio(datos).join(format!("{id}.AppImage"));
-    if archivo.is_file() {
-        std::fs::remove_file(&archivo).map_err(|e| format!("no se pudo borrar el archivo: {e}"))?;
-    }
+///
+/// Sólo los que administra la tienda. Uno que la persona dejó en su carpeta se
+/// lista y se abre, pero borrarlo no es asunto de acá: no lo pusimos nosotros.
+pub fn quitar(ruta: &str, datos: &Path, inicio: &Path) -> Result<(), String> {
+    let archivo = ruta_administrada(ruta, datos).ok_or("ese archivo no lo administra la tienda")?;
+    let id = identificador(&archivo).ok_or("identificador inválido")?;
+
+    std::fs::remove_file(&archivo).map_err(|e| format!("no se pudo borrar el archivo: {e}"))?;
     let entrada = archivo_de_menu(inicio, &id);
     if entrada.is_file() {
         let _ = std::fs::remove_file(entrada);
@@ -241,11 +316,37 @@ pub fn quitar(id: &str, datos: &Path, inicio: &Path) -> Result<(), String> {
     Ok(())
 }
 
-/// La ruta de un AppImage administrado, si existe.
-pub fn ruta_de(id: &str, datos: &Path) -> Option<PathBuf> {
-    let id = identificador(Path::new(id))?;
-    let archivo = directorio(datos).join(format!("{id}.AppImage"));
-    archivo.is_file().then_some(archivo)
+/// La ruta de un AppImage de los nuestros, comprobando que de verdad lo sea.
+fn ruta_administrada(ruta: &str, datos: &Path) -> Option<PathBuf> {
+    let archivo = PathBuf::from(ruta);
+    (archivo.parent() == Some(directorio(datos).as_path())
+        && archivo.is_file()
+        && es_appimage(&archivo))
+    .then_some(archivo)
+}
+
+/// Comprueba que una ruta sea un AppImage que se pueda ejecutar.
+///
+/// Tiene que colgar de la carpeta de la persona. No es una formalidad: es el
+/// mismo límite que usa el perfil `vasak-appimage` de AppArmor, que se engancha
+/// a `@{HOME}/**/*.AppImage`. Uno de afuera correría **sin** ese confinamiento,
+/// y la tienda no puede ser el atajo para eso.
+pub fn ruta_ejecutable(ruta: &str, inicio: &Path) -> Result<PathBuf, String> {
+    let archivo = PathBuf::from(ruta);
+    if !es_appimage(&archivo) {
+        return Err("el archivo no termina en .AppImage".to_string());
+    }
+    // `canonicalize` resuelve los enlaces simbólicos: sin eso, uno dentro del
+    // hogar que apunte afuera pasaría la comprobación.
+    let real = archivo
+        .canonicalize()
+        .map_err(|e| format!("no se pudo resolver la ruta: {e}"))?;
+    if !real.starts_with(inicio) {
+        return Err(
+            "el archivo está fuera de tu carpeta, donde el perfil de AppArmor no llega".to_string(),
+        );
+    }
+    Ok(real)
 }
 
 #[cfg(test)]
@@ -274,6 +375,18 @@ mod tests {
             Some("mi-app--1")
         );
         assert_eq!(identificador(Path::new("/x/....AppImage")), None);
+    }
+
+    #[test]
+    fn un_nombre_con_version_conserva_la_version() {
+        // `identificador` saca la extensión; `sanear` no, porque lo que recibe
+        // ya no es un nombre de archivo. Mezclarlos comía el `.3` de
+        // `Obsidian_1.5.3` y después nada encontraba el archivo.
+        assert_eq!(
+            identificador(Path::new("/x/Obsidian_1.5.3.AppImage")).as_deref(),
+            Some("Obsidian_1.5.3")
+        );
+        assert_eq!(sanear("Obsidian_1.5.3").as_deref(), Some("Obsidian_1.5.3"));
     }
 
     #[test]
@@ -326,15 +439,88 @@ mod tests {
         let temporal = tempfile::tempdir().unwrap();
         let datos = temporal.path().join("datos");
         let inicio = temporal.path().join("inicio");
-        let origen = temporal.path().join("Otra.AppImage");
+        let origen = inicio.join("Otra_2.1.0.AppImage");
+        std::fs::create_dir_all(&inicio).unwrap();
         std::fs::write(&origen, b"x").unwrap();
-        integrar(&origen, &datos, &inicio).unwrap();
+        let integrado = integrar(&origen, &datos, &inicio).unwrap();
 
-        quitar("Otra", &datos, &inicio).unwrap();
-        assert!(listar(&datos, &inicio).is_empty());
+        quitar(&integrado.ruta, &datos, &inicio).unwrap();
         assert!(!directorio_del_menu(&inicio)
-            .join("vasak-store-Otra.desktop")
+            .join("vasak-store-Otra_2.1.0.desktop")
             .is_file());
+        // El original sigue donde estaba: la tienda copió, no se lo llevó.
+        assert!(origen.is_file());
+    }
+
+    #[test]
+    fn un_appimage_que_ya_estaba_en_la_carpeta_aparece_igual() {
+        // Es lo que faltaba: listar sólo los integrados dejaba la sección vacía
+        // en una máquina que tenía AppImage adentro.
+        let temporal = tempfile::tempdir().unwrap();
+        let datos = temporal.path().join("datos");
+        let inicio = temporal.path().join("inicio");
+        std::fs::create_dir_all(inicio.join("Apps")).unwrap();
+        std::fs::write(inicio.join("Apps/Monitor_0.1.0.AppImage"), b"x").unwrap();
+        // Y uno dentro de un directorio oculto, que no tiene que aparecer.
+        std::fs::create_dir_all(inicio.join(".cache/basura")).unwrap();
+        std::fs::write(inicio.join(".cache/basura/Vieja.AppImage"), b"x").unwrap();
+
+        let lista = listar(&datos, &inicio);
+        assert_eq!(lista.len(), 1, "{lista:?}");
+        assert_eq!(lista[0].id, "Monitor_0.1.0");
+        assert!(!lista[0].administrado);
+        assert!(!lista[0].en_el_menu);
+    }
+
+    #[test]
+    fn los_integrados_van_antes_que_los_sueltos() {
+        let temporal = tempfile::tempdir().unwrap();
+        let datos = temporal.path().join("datos");
+        let inicio = temporal.path().join("inicio");
+        std::fs::create_dir_all(&inicio).unwrap();
+        std::fs::write(inicio.join("Aaa.AppImage"), b"x").unwrap();
+        let otro = inicio.join("Zzz.AppImage");
+        std::fs::write(&otro, b"x").unwrap();
+        integrar(&otro, &datos, &inicio).unwrap();
+
+        let lista = listar(&datos, &inicio);
+        assert_eq!(lista.len(), 3, "{lista:?}");
+        assert!(lista[0].administrado, "el integrado tiene que ir primero");
+        assert_eq!(lista[0].id, "Zzz");
+    }
+
+    #[test]
+    fn no_se_ejecuta_nada_de_afuera_de_la_carpeta() {
+        // El perfil de AppArmor se engancha a los AppImage de `@{HOME}`. Uno de
+        // afuera correría sin confinamiento.
+        let temporal = tempfile::tempdir().unwrap();
+        let inicio = temporal.path().join("inicio");
+        std::fs::create_dir_all(&inicio).unwrap();
+        let adentro = inicio.join("Buena.AppImage");
+        std::fs::write(&adentro, b"x").unwrap();
+        let afuera = temporal.path().join("Afuera.AppImage");
+        std::fs::write(&afuera, b"x").unwrap();
+
+        assert!(ruta_ejecutable(&adentro.to_string_lossy(), &inicio).is_ok());
+        assert!(ruta_ejecutable(&afuera.to_string_lossy(), &inicio).is_err());
+        assert!(ruta_ejecutable(
+            &adentro.to_string_lossy().replace(".AppImage", ".sh"),
+            &inicio
+        )
+        .is_err());
+    }
+
+    #[test]
+    fn no_se_quita_lo_que_la_tienda_no_administra() {
+        let temporal = tempfile::tempdir().unwrap();
+        let datos = temporal.path().join("datos");
+        let inicio = temporal.path().join("inicio");
+        std::fs::create_dir_all(&inicio).unwrap();
+        let suelto = inicio.join("Suelta.AppImage");
+        std::fs::write(&suelto, b"x").unwrap();
+
+        assert!(quitar(&suelto.to_string_lossy(), &datos, &inicio).is_err());
+        assert!(suelto.is_file(), "se borró un archivo que no era nuestro");
     }
 
     #[test]

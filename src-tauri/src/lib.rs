@@ -65,6 +65,12 @@ pub fn run() {
                     // Sin esto, cada captura que no contesta deja una conexión
                     // colgada hasta que el sistema operativo se aburre.
                     .connect_timeout(std::time::Duration::from_secs(10))
+                    // Pocas redirecciones. Las URL de las capturas salen de un
+                    // archivo que no escribimos nosotros, y una cadena larga de
+                    // redirecciones es la forma habitual de llevar una petición
+                    // a un lugar distinto del que dice la URL. Dos alcanzan para
+                    // el `http` → `https` y el dominio que cambió de nombre.
+                    .redirect(reqwest::redirect::Policy::limited(2))
                     .user_agent(concat!("vasak-store/", env!("CARGO_PKG_VERSION")))
                     .build()
                     .unwrap_or_default(),

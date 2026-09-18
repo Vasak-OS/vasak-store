@@ -27,9 +27,27 @@ describe('el AUR en la interfaz', () => {
 	test('en el AUR el botón principal abre la receta, no compila', () => {
 		// Compilar tiene que pasar por haber tenido el PKGBUILD delante: es lo
 		// único que hace que «inseguro» signifique algo más que un cartel.
-		const bloque = detalle.slice(detalle.indexOf('v-else-if="delAur"'));
+		const bloque = detalle.slice(detalle.indexOf('<BotonAccion v-if="delAur"'));
 		expect(bloque.slice(0, 200)).toContain('verReceta');
+		// Y no hay ningún botón que instale directo desde una ficha del AUR.
+		expect(bloque.slice(0, 200)).not.toContain('instalarDelAur');
 		expect(detalle).toContain("t('detalle.recetaNota')");
+	});
+
+	test('compilar sólo se ofrece desde el modal de la receta', () => {
+		// Si `compilar` se pudiera llamar desde otro lado, la receta pasaría a
+		// ser opcional y el control dejaría de existir.
+		const llamadas = [...detalle.matchAll(/@click="compilar"/g)];
+		expect(llamadas.length).toBe(1);
+		const modal = detalle.slice(detalle.indexOf('viendoReceta'));
+		expect(modal).toContain('@click="compilar"');
+	});
+
+	test('la receta se muestra tal cual y no se interpreta', () => {
+		// Va en un `<pre>` con interpolación de texto: dentro de un `v-html`,
+		// un PKGBUILD con una etiqueta adentro se ejecutaría en la ventana.
+		expect(detalle).toContain('<pre');
+		expect(detalle).not.toContain('v-html');
 	});
 
 	test('los textos explican qué es cada origen', () => {

@@ -118,7 +118,9 @@ watch(
       :marcador="t('instaladas.filtro')"
       @buscar="(texto) => { filtro = texto; cargar(); }" />
 
-    <p v-if="operacion.falla.value" class="text-sm text-status-error">{{ operacion.falla.value }}</p>
+    <p v-if="operacion.falla.value || falla" class="text-sm text-status-error">
+      {{ operacion.falla.value || falla }}
+    </p>
 
     <section
       class="flex flex-col gap-2 rounded-corner border border-dashed p-3 transition-colors"
@@ -129,14 +131,30 @@ watch(
       <ul v-if="portables.length > 0" class="flex flex-col gap-2">
         <li
           v-for="portable in portables"
-          :key="portable.id"
-          class="flex items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/40 p-2">
-          <IconoDeApp :icono="{ tipo: 'tema', valor: 'application-x-executable' }" :tamano="28" />
-          <span class="min-w-0 flex-1 truncate text-sm">{{ portable.titulo }}</span>
-          <BotonAccion @click="ejecutarAppimage(portable.id)">
+          :key="portable.ruta"
+          class="flex flex-wrap items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/40 p-2">
+          <IconoDeApp :icono="{ tema: ['application-x-executable'] }" :tamano="28" />
+          <span class="flex min-w-0 flex-1 flex-col">
+            <span class="truncate text-sm">{{ portable.titulo }}</span>
+            <span class="truncate text-tx-muted text-xs" :title="portable.ruta">
+              {{ portable.administrado ? t('instaladas.integrado') : t('instaladas.suelto') }}
+              · {{ bytes(portable.tamano) }}
+            </span>
+          </span>
+          <BotonAccion @click="conAviso(() => ejecutarAppimage(portable.ruta))">
             {{ t('instaladas.ejecutar') }}
           </BotonAccion>
-          <BotonAccion tono="peligro" @click="quitarAppimage(portable.id).then(cargar)">
+          <BotonAccion
+            v-if="!portable.administrado"
+            tono="principal"
+            :titulo="t('instaladas.integrarNota')"
+            @click="conAviso(() => integrarAppimage(portable.ruta))">
+            {{ t('instaladas.integrar') }}
+          </BotonAccion>
+          <BotonAccion
+            v-else
+            tono="peligro"
+            @click="conAviso(() => quitarAppimage(portable.ruta))">
             {{ t('instaladas.quitarAppimage') }}
           </BotonAccion>
         </li>
@@ -147,6 +165,13 @@ watch(
     </section>
 
     <IndicadorDeCarga v-if="cargando" />
+    <EstadoVacio
+      v-else-if="falla"
+      icono="dialog-error"
+      :titulo="t('comun.noSePudoLeer')"
+      :nota="falla">
+      <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
+    </EstadoVacio>
     <EstadoVacio v-else-if="lista.length === 0" :titulo="t('instaladas.vacio')" />
     <RejillaDeApps v-else :apps="lista" />
 

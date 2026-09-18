@@ -106,18 +106,6 @@ impl Cliente {
         serde_json::from_str(&json).map_err(|e| format!("respuesta ilegible del servicio: {e}"))
     }
 
-    pub async fn repositorios(
-        &self,
-    ) -> Result<Vec<vasak_store_protocol::repositorios::Repositorio>, String> {
-        let json: String = self
-            .proxy()
-            .await?
-            .call("Repositorios", &())
-            .await
-            .map_err(traducir)?;
-        serde_json::from_str(&json).map_err(|e| format!("respuesta ilegible del servicio: {e}"))
-    }
-
     pub async fn cambiar_repositorio(&self, nombre: &str, activo: bool) -> Result<(), String> {
         self.proxy()
             .await?

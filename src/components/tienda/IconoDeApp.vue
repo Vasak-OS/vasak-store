@@ -1,28 +1,58 @@
 <script lang="ts" setup>
 /**
- * El ícono de un programa, venga de donde venga.
+ * El ícono de un programa, prefiriendo el del sistema.
  *
- * Dos fuentes: el tema de íconos del escritorio —para lo instalado, que es lo
- * que se ve también en el menú— y un archivo de la caché, que es adonde van a
- * parar los íconos del catálogo después de convertirlos desde JPEG XL. El
- * archivo pasa por `convertFileSrc` porque la política de contenido de la
- * ventana no deja cargar rutas del disco directamente.
+ * Se prueban en orden los nombres del tema de íconos del escritorio —el mismo
+ * que dibuja el menú y el lanzador, y que cambia cuando la persona cambia de
+ * tema— y recién si ninguno existe se cae al archivo del catálogo, que es un
+ * PNG en la caché y pasa por `convertFileSrc` porque la política de contenido
+ * no deja cargar rutas del disco.
+ *
+ * Los nombres son varios porque los temas no se ponen de acuerdo: unos usan el
+ * `Icon=` del `.desktop`, otros el identificador de AppStream y unos cuantos el
+ * nombre del paquete.
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { getIconSource } from '@vasakgroup/plugin-vicons';
-import { computed } from 'vue';
-import { useReactiveIcon } from '@/composables/useReactiveIcon';
+import { ref, toRef, watch } from 'vue';
+import { useThemeVersion } from '@/composables/useReactiveIcon';
 import type { Icono } from '@/tools/api';
 
 const props = withDefaults(defineProps<{ icono: Icono; tamano?: number }>(), { tamano: 40 });
 
-const delTema = useReactiveIcon(async () =>
-	props.icono.tipo === 'tema' ? await getIconSource(props.icono.valor) : ''
-);
+const fuente = ref('');
+const version = useThemeVersion();
+const icono = toRef(props, 'icono');
 
-const fuente = computed(() =>
-	props.icono.tipo === 'archivo' ? convertFileSrc(props.icono.valor) : delTema.value
-);
+let pedido = 0;
+
+async function resolver() {
+	const mio = ++pedido;
+	for (const nombre of icono.value.tema ?? []) {
+		try {
+			const src = await getIconSource(nombre);
+			if (mio !== pedido) {
+				return;
+			}
+			if (src) {
+				fuente.value = src;
+				return;
+			}
+		} catch {
+			// Ese nombre no está en el tema; se prueba el siguiente.
+		}
+	}
+	if (mio !== pedido) {
+		return;
+	}
+	fuente.value = icono.value.archivo ? convertFileSrc(icono.value.archivo) : '';
+}
+
+// Se vuelve a resolver cuando cambia el ícono **y** cuando cambia el tema. Lo
+// primero hace falta porque Vue reusa el componente entre elementos de una
+// lista: al desplazar la lista, las tarjetas nuevas se quedaban con el ícono de
+// la fila que ocupaba ese lugar antes.
+watch([icono, version], resolver, { immediate: true, deep: true });
 </script>
 <template>
   <img

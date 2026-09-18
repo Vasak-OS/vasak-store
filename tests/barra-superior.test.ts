@@ -52,12 +52,14 @@ describe('el selector', () => {
 		);
 	});
 
-	test('se anuncia como un grupo de pestañas', () => {
-		// Sin esto un lector de pantalla lee cuatro botones sueltos y no dice
-		// cuál está activo.
-		expect(selector).toContain('role="tablist"');
-		expect(selector).toContain('role="tab"');
-		expect(selector).toContain(':aria-selected');
+	test('se anuncia como navegación y no como pestañas', () => {
+		// Cada uno cambia la ruta y lo que hay debajo es una pantalla entera, no
+		// un panel: anunciarlo como pestañas manda al lector de pantalla a
+		// buscar un `tabpanel` que no existe.
+		expect(selector).toContain('<nav');
+		expect(selector).toContain('RouterLink');
+		expect(selector).toContain('aria-current');
+		expect(selector).not.toContain('role="tablist"');
 	});
 
 	test('las pantallas que cuelgan de una sección la dejan encendida', () => {

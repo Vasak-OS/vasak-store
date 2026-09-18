@@ -19,6 +19,7 @@ secciones:
   instaladas: Installed
   actualizaciones: Updates
   repositorios: Repositories
+  navegacion: Store sections
 comun:
   cargando: Loading…
   reintentar: Retry
@@ -28,6 +29,7 @@ comun:
   volver: Back
   buscar: Search
   sinConexion: There is no connection to the package service. The store can browse and search, but it cannot install or remove anything.
+  noSePudoLeer: Could not read
 busqueda:
   marcador: Search for software
   incluirAur: Include the AUR
@@ -77,6 +79,10 @@ instaladas:
   ejecutar: Open
   quitarAppimage: Remove
   sinAppimages: No AppImage has been integrated
+  integrado: Integrated
+  suelto: In your folder, not integrated
+  integrar: Integrate
+  integrarNota: Copies it into the store folder and adds it to the application menu.
 actualizaciones:
   titulo: Updates
   ninguna: The system is up to date
@@ -134,6 +140,8 @@ detalle:
   receta: This package's recipe
   recetaNota: This is what will run on your machine to build it. Read it before going on.
   compilarEInstalar: Build and install
+  capturaAnterior: Previous screenshot
+  capturaSiguiente: Next screenshot
 operacion:
   previsualizacion: What will happen
   seInstalan: Will be installed

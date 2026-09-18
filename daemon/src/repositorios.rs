@@ -7,13 +7,8 @@ use std::io::Write;
 use std::path::Path;
 
 pub use vasak_store_protocol::repositorios::{
-    agregar, analizar, cambiar_estado, quitar, Repositorio,
+    agregar, analizar, cambiar_estado, quitar, Repositorio, RUTA,
 };
-
-/// El archivo de siempre. Es constante y no configurable a propósito: si
-/// alguien mueve la configuración de pacman, que esto falle es mejor que que
-/// escriba en el lugar equivocado.
-pub const RUTA: &str = "/etc/pacman.conf";
 
 /// Lee los repositorios del archivo, encendidos y apagados.
 pub fn listar() -> Result<Vec<Repositorio>, String> {

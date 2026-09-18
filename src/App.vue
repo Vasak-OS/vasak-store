@@ -18,17 +18,24 @@ onMounted(async () => {
 	await operaciones.escuchar();
 	await tienda.contar();
 
+	// Los dos `try` son separados a propósito. Con uno solo, un fallo al
+	// suscribirse dejaba la configuración sin cargar aunque la carga hubiera
+	// salido bien, y la ventana abría con los colores y las fuentes de reserva.
+	const configStore = useConfigStore();
 	try {
-		const configStore = useConfigStore();
 		await configStore.loadConfig();
+	} catch (error: unknown) {
+		console.error('Error al cargar configuración en App.vue', error);
+	}
 
+	try {
 		unListenConfig.value = await listen('config-changed', async () => {
 			document.startViewTransition(() => {
 				configStore.loadConfig();
 			});
 		});
 	} catch (error: unknown) {
-		console.error('Error al cargar configuración en App.vue', error);
+		console.error('No se pudo escuchar los cambios de configuración', error);
 	}
 });
 

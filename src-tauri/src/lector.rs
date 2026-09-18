@@ -302,6 +302,18 @@ fn buscar(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str, limite
     }
 
     puntuados.sort_by(|a, b| b.0.cmp(&a.0).then_with(|| a.1.name().cmp(b.1.name())));
+    // Un mismo nombre puede estar en varios repositorios —`extra` y
+    // `cachyos-extra-v3` traen los dos casi todo—, y mostrarlo dos veces en la
+    // lista no ayuda a nadie. Gana el primero, que es el de más puntaje.
+    let mut vistos: Vec<&str> = Vec::new();
+    puntuados.retain(|(_, paquete)| {
+        let nuevo = !vistos.contains(&paquete.name());
+        if nuevo {
+            vistos.push(paquete.name());
+        }
+        nuevo
+    });
+
     let total = puntuados.len();
     let resultados = puntuados
         .into_iter()
@@ -360,10 +372,18 @@ fn de_categoria(
     nombres.sort_unstable();
     nombres.dedup();
 
-    let total = nombres.len();
-    let resultados = nombres
+    // El total se cuenta **después** de descartar lo que no existe en los
+    // repositorios configurados: el catálogo de Arch nombra paquetes que esta
+    // máquina puede no tener, y contarlos dejaba la lista con un tramo final
+    // vacío.
+    let existentes: Vec<&alpm::Package> = nombres
         .into_iter()
         .filter_map(|nombre| buscar_paquete(alpm, nombre))
+        .collect();
+
+    let total = existentes.len();
+    let resultados = existentes
+        .into_iter()
         .take(limite)
         .map(|p| tarjeta(alpm, catalogo, cache, p, false))
         .collect();
@@ -399,8 +419,8 @@ fn descubrir(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Descubrimient
     // Novedades: lo que se construyó hace menos. Es un dato real de la base de
     // datos, a diferencia de «lo más descargado», que en una máquina no existe:
     // nadie lleva la cuenta de cuánta gente instaló qué.
-    let mut con_fecha: Vec<(i64, &Ficha)> = catalogo
-        .todas()
+    let mut con_fecha: Vec<(i64, &Ficha)> = sin_repetir(catalogo)
+        .into_iter()
         .filter_map(|f| Some((buscar_paquete(alpm, &f.paquete)?.build_date(), f)))
         .collect();
     con_fecha.sort_by(|a, b| b.0.cmp(&a.0));
@@ -420,8 +440,8 @@ fn descubrir(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf) -> Descubrimient
         .duration_since(std::time::UNIX_EPOCH)
         .map(|d| d.as_secs() / 86_400)
         .unwrap_or(0);
-    let mut sorteables: Vec<(u64, &Ficha)> = catalogo
-        .todas()
+    let mut sorteables: Vec<(u64, &Ficha)> = sin_repetir(catalogo)
+        .into_iter()
         .filter(|f| !f.capturas.is_empty() && f.icono_archivo.is_some())
         .map(|f| (sorteo(&f.paquete, dia), f))
         .collect();
@@ -463,6 +483,24 @@ fn nombres(alpm: &Alpm) -> (HashSet<String>, HashSet<String>) {
     (instalados, disponibles)
 }
 
+/// Una ficha por paquete.
+///
+/// Un paquete puede traer varias aplicaciones —`plan9port` trae unas cuantas— y
+/// sin esto las filas de Descubrir mostraban el mismo paquete repetido,
+/// corriendo a otros de la lista.
+fn sin_repetir(catalogo: &Catalogo) -> Vec<&Ficha> {
+    let mut vistos: Vec<&str> = Vec::new();
+    let mut fichas: Vec<&Ficha> = Vec::new();
+    for ficha in catalogo.todas() {
+        if vistos.contains(&ficha.paquete.as_str()) {
+            continue;
+        }
+        vistos.push(&ficha.paquete);
+        fichas.push(ficha);
+    }
+    fichas
+}
+
 /// Un número estable por paquete y por día, para ordenar el sorteo.
 fn sorteo(paquete: &str, dia: u64) -> u64 {
     let mut hash: u64 = 0xcbf2_9ce4_8422_2325 ^ dia;
@@ -497,9 +535,18 @@ fn tarjeta(
     let instalado = alpm.localdb().pkg(paquete.name()).ok();
     let instalada = instalado.is_some();
 
-    let repositorio = paquete
-        .db()
+    // De dónde sale, buscándolo en los repositorios y no en `db()`.
+    //
+    // Para un paquete leído de la base local, `db()` contesta `local` siempre,
+    // así que **todo lo instalado** aparecía como origen «Instalado» aunque
+    // `extra` lo siguiera ofreciendo. Sólo es local de verdad lo que ningún
+    // repositorio configurado tiene.
+    let repositorio = alpm
+        .syncdbs()
+        .iter()
+        .find(|db| db.pkg(paquete.name()).is_ok())
         .map(|db| db.name().to_string())
+        .or_else(|| paquete.db().map(|db| db.name().to_string()))
         .unwrap_or_else(|| "local".to_string());
 
     let actualizable = if es_local {
@@ -531,7 +578,7 @@ fn tarjeta(
         instalada,
         actualizable,
         tamano: paquete.isize(),
-        icono: icono(ficha, instalada, cache),
+        icono: icono(ficha, paquete.name(), cache),
         categorias: ficha
             .map(|f| {
                 catalogo::categorias_de(f)
@@ -548,27 +595,39 @@ fn tarjeta(
 
 /// De dónde sale el ícono de algo.
 ///
-/// Si está instalado, del tema del escritorio: es el mismo que se ve en el menú
-/// de aplicaciones y sigue el tema que la persona eligió. Si no lo está, del
-/// catálogo, convertido a PNG. Y si no hay ninguno de los dos, el genérico de
-/// paquete, que al menos no deja un hueco.
-fn icono(ficha: Option<&Ficha>, instalada: bool, cache: &PathBuf) -> Icono {
+/// **El tema del sistema primero**, siempre que tenga algo: es el mismo ícono
+/// que se ve en el menú de aplicaciones, sigue el tema que la persona eligió y
+/// se redibuja cuando lo cambia. El archivo del catálogo es el respaldo, para lo
+/// que el tema no tenga —típicamente lo que todavía no está instalado—.
+///
+/// Los nombres a probar son varios porque los temas no se ponen de acuerdo: el
+/// `Icon=` del `.desktop` es el más común, el identificador de AppStream sin el
+/// `.desktop` lo usan los temas modernos, y el nombre del paquete acierta en
+/// bastantes casos que los otros dos no cubren. Se prueban en ese orden y el
+/// último es el genérico, que al menos no deja un hueco.
+fn icono(ficha: Option<&Ficha>, paquete: &str, cache: &PathBuf) -> Icono {
+    let mut tema: Vec<String> = Vec::new();
+
     if let Some(ficha) = ficha {
-        if instalada {
-            if let Some(nombre) = ficha.icono.as_deref().filter(|n| !n.is_empty()) {
-                return Icono::Tema(nombre.to_string());
-            }
-        }
-        if let Some(archivo) = ficha.icono_archivo.as_deref() {
-            if let Some(png) = crate::medios::icono_a_png(std::path::Path::new(archivo), cache) {
-                return Icono::Archivo(png.to_string_lossy().to_string());
-            }
-        }
         if let Some(nombre) = ficha.icono.as_deref().filter(|n| !n.is_empty()) {
-            return Icono::Tema(nombre.to_string());
+            tema.push(nombre.to_string());
+        }
+        let sin_desktop = ficha.id.strip_suffix(".desktop").unwrap_or(&ficha.id);
+        if !sin_desktop.is_empty() && !tema.iter().any(|n| n == sin_desktop) {
+            tema.push(sin_desktop.to_string());
         }
     }
-    Icono::Tema("package-x-generic".to_string())
+    if !tema.iter().any(|n| n == paquete) {
+        tema.push(paquete.to_string());
+    }
+    tema.push("package-x-generic".to_string());
+
+    let archivo = ficha
+        .and_then(|f| f.icono_archivo.as_deref())
+        .and_then(|ruta| crate::medios::icono_a_png(std::path::Path::new(ruta), cache))
+        .map(|png| png.to_string_lossy().to_string());
+
+    Icono { tema, archivo }
 }
 
 fn detalle(

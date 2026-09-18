@@ -21,9 +21,17 @@ use std::path::{Path, PathBuf};
 use vasak_store_lib::catalogo::{categorias_de, Catalogo, CATEGORIAS};
 
 fn donde() -> Option<PathBuf> {
+    // Si alguien la puso, tiene que servir. Caer en silencio al catálogo del
+    // sistema —o a no correr— haría que una ruta mal escrita se viera igual que
+    // una prueba que pasó.
     if let Ok(propio) = std::env::var("VASAK_STORE_CATALOGO") {
         let ruta = PathBuf::from(propio);
-        return ruta.is_dir().then_some(ruta);
+        assert!(
+            ruta.is_dir(),
+            "VASAK_STORE_CATALOGO apunta a {}, que no es un directorio",
+            ruta.display()
+        );
+        return Some(ruta);
     }
     let del_sistema = Path::new("/usr/share/swcatalog/xml");
     del_sistema.is_dir().then(|| del_sistema.to_path_buf())

@@ -103,6 +103,8 @@ export interface AppImage {
 	tamano: number;
 	integrado: number;
 	en_el_menu: boolean;
+	/** Si vive en el directorio de la tienda, o sea si lo integramos nosotros. */
+	administrado: boolean;
 }
 
 /** Un paso de una operación en curso. */
@@ -175,6 +177,6 @@ export const appimages = () => invoke<AppImage[]>('appimages');
 
 export const integrarAppimage = (ruta: string) => invoke<AppImage>('integrar_appimage', { ruta });
 
-export const quitarAppimage = (id: string) => invoke<void>('quitar_appimage', { id });
+export const quitarAppimage = (ruta: string) => invoke<void>('quitar_appimage', { ruta });
 
-export const ejecutarAppimage = (id: string) => invoke<void>('ejecutar_appimage', { id });
+export const ejecutarAppimage = (ruta: string) => invoke<void>('ejecutar_appimage', { ruta });

@@ -36,7 +36,27 @@ const receta = ref('');
 const viendoReceta = ref(false);
 
 const delAur = computed(() => ruta.params.origen === 'aur');
-const esAppimage = computed(() => ruta.params.origen === 'appimage');
+
+/**
+ * El sitio del proyecto, si es una dirección que se puede abrir.
+ *
+ * El valor sale del catálogo de AppStream o de la base de pacman, o sea de
+ * archivos que no escribimos nosotros. Puesto tal cual en un `href`, un
+ * `javascript:` ahí adentro se ejecuta en la ventana al hacer clic. Sólo pasan
+ * `http` y `https`.
+ */
+const web = computed(() => {
+	const crudo = app.value?.web;
+	if (!crudo) {
+		return null;
+	}
+	try {
+		const url = new URL(crudo);
+		return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
+	} catch {
+		return null;
+	}
+});
 
 async function cargar() {
 	cargando.value = true;
@@ -100,13 +120,7 @@ watch(
         </div>
 
         <div class="flex flex-wrap gap-2">
-          <BotonAccion
-            v-if="esAppimage"
-            tono="principal"
-            @click="ejecutarAppimage(app.nombre)">
-            {{ t('detalle.abrir') }}
-          </BotonAccion>
-          <BotonAccion v-else-if="delAur" tono="principal" @click="verReceta">
+          <BotonAccion v-if="delAur" tono="principal" @click="verReceta">
             {{ t('detalle.verReceta') }}
           </BotonAccion>
           <template v-else>
@@ -140,7 +154,7 @@ watch(
       </p>
 
       <CarruselDeCapturas v-if="app.capturas.length > 0" :capturas="app.capturas" />
-      <p v-else-if="!delAur && !esAppimage" class="text-tx-muted text-xs">
+      <p v-else-if="!delAur" class="text-tx-muted text-xs">
         {{ t('detalle.sinCapturas') }}
       </p>
 
@@ -196,8 +210,8 @@ watch(
       </dl>
 
       <a
-        v-if="app.web"
-        :href="app.web"
+        v-if="web"
+        :href="web"
         target="_blank"
         rel="noreferrer noopener"
         class="text-primary text-sm underline">
