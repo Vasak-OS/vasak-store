@@ -593,7 +593,7 @@ mod tests {
     fn la_configuracion_del_sistema_se_puede_abrir() {
         match abrir() {
             Ok(alpm) => assert!(
-                alpm.syncdbs().len() > 0,
+                !alpm.syncdbs().is_empty(),
                 "no hay ningún repositorio configurado"
             ),
             Err(razon) => panic!("no se pudo abrir libalpm: {razon}"),
