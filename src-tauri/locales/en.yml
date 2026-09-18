@@ -172,3 +172,7 @@ tarjeta:
   instalar: Install
   actualizar: Update
   instalada: Installed
+  receta: View the recipe
+barraLateral:
+  plegar: Collapse the sidebar
+  desplegar: Expand the sidebar

@@ -9,7 +9,10 @@
  * Lo propio de acá es que arriba de todo va la búsqueda, antes que cualquier
  * categoría: en una tienda, buscar es lo primero que alguien hace.
  */
+import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { onBeforeUnmount, onMounted, ref } from 'vue';
+
+const { t } = useI18n();
 
 withDefaults(defineProps<{ titulo?: string; subtitulo?: string }>(), {
 	titulo: '',
@@ -51,7 +54,7 @@ defineExpose({ plegada });
         <button
           type="button"
           class="hidden h-10 w-10 items-center justify-center rounded-corner border border-ui-border bg-ui-surface/70 font-semibold text-sm md:inline-flex"
-          :aria-label="titulo"
+          :aria-label="plegada ? t('barraLateral.desplegar') : t('barraLateral.plegar')"
           @click="alternar">
           {{ plegada ? '&gt;' : '&lt;' }}
         </button>

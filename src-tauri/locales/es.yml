@@ -172,3 +172,7 @@ tarjeta:
   instalar: Instalar
   actualizar: Actualizar
   instalada: Instalado
+  receta: Ver la receta
+barraLateral:
+  plegar: Plegar la barra lateral
+  desplegar: Desplegar la barra lateral

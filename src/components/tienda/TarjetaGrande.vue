@@ -58,11 +58,13 @@ const captura = computed(() =>
         </div>
         <p class="line-clamp-2 text-tx-muted text-xs leading-snug">{{ app.resumen }}</p>
       </div>
+      <!-- Lo del AUR abre la ficha: el control de la receta vive ahí. -->
       <BotonInstalar
         :app="app"
         :ocupado="ocupado"
         @instalar="emit('instalar')"
-        @actualizar="emit('actualizar')" />
+        @actualizar="emit('actualizar')"
+        @receta="emit('abrir')" />
     </div>
   </article>
 </template>

@@ -120,16 +120,36 @@ describe('la tarjeta', () => {
 
 describe('el botón de instalar', () => {
 	test('dice algo distinto en cada estado', () => {
-		for (const estado of ['instalar', 'actualizar', 'instalada']) {
+		for (const estado of ['instalar', 'actualizar', 'instalada', 'receta']) {
 			expect(instalar).toContain(`'${estado}'`);
 		}
 		expect(instalar).toContain('t(`tarjeta.${estado}`)');
 	});
 
-	test('se apaga con una operación en curso', () => {
+	test('lo del AUR no ofrece instalar: manda a la receta', () => {
+		// Instalar del AUR es compilar un guión que subió cualquiera, y el
+		// control de tener el PKGBUILD delante vive en la ficha. Un botón de
+		// instalar acá lo saltearía —y además fallaría, porque el servicio sólo
+		// instala de los repositorios—.
+		expect(instalar).toContain("props.app.origen === 'aur'");
+		const decidir = instalar.slice(instalar.indexOf('function apretar'));
+		expect(decidir.slice(0, 200)).toContain("emit('receta')");
+		// Y la tarjeta lo convierte en abrir la ficha.
+		expect(tarjeta).toContain('@receta="emit(\'abrir\')"');
+	});
+
+	test('el teclado no dispara la tarjeta además del botón', () => {
+		// El botón con Enter ya emite un clic; sin cortar también el `keydown`,
+		// éste sube hasta la tarjeta y encima navega.
+		expect(instalar).toContain('@keydown.enter.stop');
+		expect(instalar).toContain('@keydown.space.stop');
+	});
+
+	test('se apaga con una operación en curso, salvo el de la receta', () => {
 		// El candado de pacman admite un solo dueño: el servicio rechazaría la
-		// segunda y es mejor que el botón lo diga antes.
-		expect(instalar).toContain(':disabled="ocupado');
+		// segunda y es mejor que el botón lo diga antes. Leer una receta, en
+		// cambio, no toca nada y no hay motivo para impedirlo.
+		expect(instalar).toContain("ocupado && estado !== 'receta'");
 	});
 });
 
