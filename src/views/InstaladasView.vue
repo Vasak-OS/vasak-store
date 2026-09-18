@@ -30,6 +30,7 @@ import {
 	quitarAppimage,
 	type Tarjeta,
 } from '@/tools/api';
+import { bytes } from '@/tools/formato';
 
 const { t } = useI18n();
 const operaciones = useOperaciones();
@@ -41,10 +42,13 @@ const portables = ref<AppImage[]>([]);
 const cargando = ref(true);
 const conHuerfanas = ref(true);
 const soltando = ref(false);
+/** El error de la lectura, que deja la pantalla sin nada que mostrar. */
+const falla = ref('');
 let soltar: UnlistenFn | null = null;
 
 async function cargar() {
 	cargando.value = true;
+	falla.value = '';
 	try {
 		const [instaladas, appimages] = await Promise.all([
 			pedirInstaladas(filtro.value),
@@ -52,20 +56,30 @@ async function cargar() {
 		]);
 		lista.value = instaladas.resultados;
 		portables.value = appimages;
+	} catch (error) {
+		// Un fallo acá se veía como «no hay nada instalado», que en esta pantalla
+		// es una mentira alarmante.
+		falla.value = String(error);
 	} finally {
 		cargando.value = false;
 	}
 }
 
-async function integrar(rutas: string[]) {
-	for (const ruta of rutas) {
-		try {
-			await integrarAppimage(ruta);
-		} catch (error) {
-			operacion.falla.value = String(error);
-		}
+/** Corre una acción sobre un AppImage y deja el error a la vista si falla. */
+async function conAviso(accion: () => Promise<unknown>) {
+	falla.value = '';
+	try {
+		await accion();
+	} catch (error) {
+		falla.value = String(error);
 	}
 	await cargar();
+}
+
+async function integrar(rutas: string[]) {
+	for (const ruta of rutas) {
+		await conAviso(() => integrarAppimage(ruta));
+	}
 }
 
 onMounted(async () => {

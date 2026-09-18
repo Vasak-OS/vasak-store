@@ -43,6 +43,7 @@ const clases = computed(() => [
     :placeholder="placeholder"
     :required="required"
     :aria-label="etiqueta"
+    :aria-invalid="invalid || undefined"
     :class="clases"
     @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)">
 </template>

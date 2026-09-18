@@ -9,7 +9,8 @@
 
 use std::collections::HashSet;
 use std::path::PathBuf;
-use std::sync::OnceLock;
+use std::sync::{Mutex, OnceLock};
+use std::time::{Duration, Instant};
 
 use tauri::{AppHandle, Emitter, State};
 use vasak_store_protocol::repositorios::Repositorio;
@@ -44,13 +45,56 @@ pub struct Estado {
     /// El directorio de la persona, para el `.desktop` del menú.
     pub inicio: PathBuf,
     pub http: reqwest::Client,
+    /// La última lista de AppImage, con cuándo se armó.
+    ///
+    /// Buscarlos es recorrer la carpeta de la persona, y la búsqueda de la
+    /// tienda los incluye: sin esto, cada tecla recorría el disco. Se guarda un
+    /// rato corto —lo justo para que una búsqueda no lo repita— y se tira al
+    /// integrar o quitar uno, que son los dos momentos en que cambia.
+    pub appimages: Mutex<Option<(Instant, Vec<AppImage>)>>,
 }
+
+/// Cuánto vale la lista de AppImage guardada.
+const VIGENCIA: Duration = Duration::from_secs(15);
 
 impl Estado {
     fn servicio(&self) -> Result<&Cliente, String> {
         self.cliente
             .get()
             .ok_or_else(|| "no hay conexión con el servicio de paquetes".to_string())
+    }
+
+    /// Los AppImage, del disco o de lo guardado hace poco.
+    ///
+    /// El recorrido va a `spawn_blocking`: son operaciones de archivo
+    /// sincrónicas, y hacerlas en una tarea de tokio ocupa un hilo del ejecutor
+    /// mientras dure. Con una carpeta grande, eso es la ventana entera esperando.
+    async fn appimages(&self) -> Vec<AppImage> {
+        if let Ok(guardado) = self.appimages.lock() {
+            if let Some((cuando, lista)) = guardado.as_ref() {
+                if cuando.elapsed() < VIGENCIA {
+                    return lista.clone();
+                }
+            }
+        }
+
+        let datos = self.datos.clone();
+        let inicio = self.inicio.clone();
+        let lista = tauri::async_runtime::spawn_blocking(move || appimage::listar(&datos, &inicio))
+            .await
+            .unwrap_or_default();
+
+        if let Ok(mut guardado) = self.appimages.lock() {
+            *guardado = Some((Instant::now(), lista.clone()));
+        }
+        lista
+    }
+
+    /// Olvida la lista guardada. Se llama tras integrar o quitar uno.
+    fn olvidar_appimages(&self) {
+        if let Ok(mut guardado) = self.appimages.lock() {
+            *guardado = None;
+        }
     }
 }
 
@@ -74,9 +118,11 @@ pub async fn buscar(
     let limite = limite.unwrap_or(LIMITE);
     let mut pagina = estado.lector.buscar(texto.clone(), limite).await;
 
-    // Los AppImage integrados van primero: son pocos y son de la persona, así
-    // que si uno coincide es casi seguro el que buscaba.
-    let suyos: Vec<Tarjeta> = appimage::listar(&estado.datos, &estado.inicio)
+    // Los AppImage van primero: son pocos y son de la persona, así que si uno
+    // coincide es casi seguro el que buscaba.
+    let suyos: Vec<Tarjeta> = estado
+        .appimages()
+        .await
         .iter()
         .filter(|a| crate::lector::puntaje(&texto, &a.id, &a.titulo).is_some())
         .map(|a| a.como_tarjeta())
@@ -355,11 +401,7 @@ pub async fn quitar_repositorio(estado: State<'_, Estado>, nombre: String) -> Re
 
 #[tauri::command]
 pub async fn appimages(estado: State<'_, Estado>) -> Result<Vec<AppImage>, String> {
-    let datos = estado.datos.clone();
-    let inicio = estado.inicio.clone();
-    tauri::async_runtime::spawn_blocking(move || appimage::listar(&datos, &inicio))
-        .await
-        .map_err(|e| format!("no se pudo listar: {e}"))
+    Ok(estado.appimages().await)
 }
 
 #[tauri::command]
@@ -370,16 +412,20 @@ pub async fn integrar_appimage(
     let datos = estado.datos.clone();
     let inicio = estado.inicio.clone();
     // Copiar un archivo de varios cientos de megas bloquea; va al pozo de hilos.
-    tauri::async_runtime::spawn_blocking(move || {
+    let integrado = tauri::async_runtime::spawn_blocking(move || {
         appimage::integrar(std::path::Path::new(&ruta), &datos, &inicio)
     })
     .await
-    .map_err(|e| format!("no se pudo integrar: {e}"))?
+    .map_err(|e| format!("no se pudo integrar: {e}"))?;
+    estado.olvidar_appimages();
+    integrado
 }
 
 #[tauri::command]
 pub async fn quitar_appimage(estado: State<'_, Estado>, ruta: String) -> Result<(), String> {
-    appimage::quitar(&ruta, &estado.datos, &estado.inicio)
+    let resultado = appimage::quitar(&ruta, &estado.datos, &estado.inicio);
+    estado.olvidar_appimages();
+    resultado
 }
 
 /// Arranca un AppImage.

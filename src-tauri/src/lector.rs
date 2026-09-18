@@ -305,14 +305,12 @@ fn buscar(alpm: &Alpm, catalogo: &Catalogo, cache: &PathBuf, texto: &str, limite
     // Un mismo nombre puede estar en varios repositorios —`extra` y
     // `cachyos-extra-v3` traen los dos casi todo—, y mostrarlo dos veces en la
     // lista no ayuda a nadie. Gana el primero, que es el de más puntaje.
-    let mut vistos: Vec<&str> = Vec::new();
-    puntuados.retain(|(_, paquete)| {
-        let nuevo = !vistos.contains(&paquete.name());
-        if nuevo {
-            vistos.push(paquete.name());
-        }
-        nuevo
-    });
+    //
+    // Con un `HashSet` y no recorriendo una lista: acá entran quince mil
+    // paquetes y esto corre en cada tecla. Buscar en un `Vec` cada vez son
+    // cien millones de comparaciones de cadenas por búsqueda.
+    let mut vistos: HashSet<&str> = HashSet::new();
+    puntuados.retain(|(_, paquete)| vistos.insert(paquete.name()));
 
     let total = puntuados.len();
     let resultados = puntuados
@@ -489,16 +487,11 @@ fn nombres(alpm: &Alpm) -> (HashSet<String>, HashSet<String>) {
 /// sin esto las filas de Descubrir mostraban el mismo paquete repetido,
 /// corriendo a otros de la lista.
 fn sin_repetir(catalogo: &Catalogo) -> Vec<&Ficha> {
-    let mut vistos: Vec<&str> = Vec::new();
-    let mut fichas: Vec<&Ficha> = Vec::new();
-    for ficha in catalogo.todas() {
-        if vistos.contains(&ficha.paquete.as_str()) {
-            continue;
-        }
-        vistos.push(&ficha.paquete);
-        fichas.push(ficha);
-    }
-    fichas
+    let mut vistos: HashSet<&str> = HashSet::new();
+    catalogo
+        .todas()
+        .filter(|ficha| vistos.insert(ficha.paquete.as_str()))
+        .collect()
 }
 
 /// Un número estable por paquete y por día, para ordenar el sorteo.

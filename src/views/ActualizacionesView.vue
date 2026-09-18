@@ -27,12 +27,20 @@ const operacion = useOperacion();
 
 const lista = ref<Tarjeta[]>([]);
 const cargando = ref(true);
+/** El error de la lectura, que deja la pantalla sin nada que mostrar. */
+const falla = ref('');
 
 async function cargar() {
 	cargando.value = true;
+	falla.value = '';
 	try {
 		lista.value = await pedirActualizaciones();
 		tienda.pendientes = lista.value.length;
+	} catch (error) {
+		// Sin esto, un fallo del backend se veía igual que «el sistema está al
+		// día»: la lista quedaba vacía y la pantalla decía que no hay nada que
+		// actualizar. Es el peor mensaje posible para un error.
+		falla.value = String(error);
 	} finally {
 		cargando.value = false;
 	}

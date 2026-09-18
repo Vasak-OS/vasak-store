@@ -37,13 +37,28 @@ const nuevo = ref({ nombre: '', servidor: '', siglevel: 'Required DatabaseOption
 async function cargar() {
 	cargando.value = true;
 	falla.value = '';
+	noSeLeyo.value = '';
 	try {
 		lista.value = await pedirRepositorios();
 	} catch (error) {
-		falla.value = String(error);
+		// Aparte del error de una acción: si no se pudo leer, no hay lista que
+		// mostrar, y la pantalla tiene que decir eso en lugar de quedar en blanco.
+		noSeLeyo.value = String(error);
 	} finally {
 		cargando.value = false;
 	}
+}
+
+/**
+ * Pide al formulario que valide antes de mandar.
+ *
+ * El botón de confirmar está en el pie del modal, fuera del `<form>`, así que
+ * no puede ser de tipo `submit`. Llamando a `agregar` directo se salteaba la
+ * validación de los campos obligatorios y se mandaba un formulario vacío al
+ * servicio, que contestaba un error críptico en vez de señalar el campo.
+ */
+function enviar() {
+	formulario.value?.requestSubmit();
 }
 
 async function cambiar(repositorio: Repositorio, activo: boolean) {

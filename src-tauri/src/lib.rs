@@ -74,6 +74,7 @@ pub fn run() {
                     .user_agent(concat!("vasak-store/", env!("CARGO_PKG_VERSION")))
                     .build()
                     .unwrap_or_default(),
+                appimages: std::sync::Mutex::new(None),
             };
             app.manage(estado);
 

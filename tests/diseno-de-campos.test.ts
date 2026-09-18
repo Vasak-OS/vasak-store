@@ -37,6 +37,11 @@ describe('el campo de texto', () => {
 		}
 	});
 
+	test('lo inválido se anuncia y no sólo se pinta', () => {
+		// El borde rojo no existe para quien usa un lector de pantalla.
+		expect(campo).toContain('aria-invalid');
+	});
+
 	test('el foco se ve', () => {
 		// `outline-none` a secas deja el recorrido con Tab a ciegas; acá se
 		// reemplaza por el anillo, que es lo que WCAG 2.4.7 pide.
