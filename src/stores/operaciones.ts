@@ -84,6 +84,20 @@ export const useOperaciones = defineStore('operaciones', () => {
 		titulo: string;
 	} | null = null;
 
+	/** Cuántos informes se pidieron. De los que estén en vuelo, sólo vale el último. */
+	let ultimoInforme = 0;
+
+	/**
+	 * Deja sin dueño al informe que se esté calculando.
+	 *
+	 * Lo llaman confirmar y cancelar: después de cualquiera de los dos, un
+	 * informe que llegue tarde abriría el diálogo encima de una operación ya
+	 * mandada, o de una pantalla donde la persona acaba de decir que no.
+	 */
+	function anularElInformeEnVuelo() {
+		ultimoInforme++;
+	}
+
 	let soltar: UnlistenFn[] = [];
 
 	const ocupado = computed(() => enCurso.value !== null || preparando.value || iniciando.value);
@@ -141,37 +155,87 @@ export const useOperaciones = defineStore('operaciones', () => {
 		soltar = [];
 	}
 
+	/** Si ya hay alguien juntando la cola y preguntando por ella. */
+	let atendiendoLaCola = false;
+
 	/**
 	 * Suma un paquete a lo que se va a instalar.
 	 *
-	 * Si no hay nada corriendo, pregunta en el acto por todo lo acumulado. Si hay
-	 * algo corriendo, se queda esperando y la tarjeta lo muestra como en cola.
+	 * Si no hay nada corriendo, pregunta por todo lo acumulado. Si hay algo
+	 * corriendo, se queda esperando y la tarjeta lo muestra como en cola.
 	 */
 	async function encolar(nombre: string) {
 		if (!cola.value.includes(nombre)) {
 			cola.value.push(nombre);
 		}
-		if (ocupado.value || preguntando.value) {
+		// Con una transacción en curso espera su turno: el candado de pacman
+		// admite un solo dueño, y la atiende `cerrar` cuando la de ahora termine.
+		if (enCurso.value || iniciando.value) {
 			return;
 		}
+		// Con un diálogo de quitar o de actualizar abierto tampoco. Esos no se
+		// juntan con la cola, y recalcular encima le cambiaría a la persona lo
+		// que está por confirmar.
+		if (preguntando.value && pendiente?.clase !== 'instalar') {
+			return;
+		}
+		if (atendiendoLaCola) {
+			return;
+		}
+		// Dos tarjetas apretadas una atrás de la otra caen en el mismo tick. Sin
+		// este respiro, la primera se llevaba la cola con un solo paquete y la
+		// segunda se encontraba el cálculo ya empezado: dos informes y dos
+		// transacciones para algo que pacman resuelve de una. Es un microtask y
+		// no una espera; no se nota.
+		await Promise.resolve();
 		await preguntarPorLaCola();
+	}
+
+	/** Si el informe que está por confirmarse es exactamente la cola. */
+	function elInformeCubreLaCola() {
+		return (
+			pendiente !== null &&
+			pendiente.clase === 'instalar' &&
+			pendiente.paquetes.length === cola.value.length &&
+			pendiente.paquetes.every((nombre) => cola.value.includes(nombre))
+		);
 	}
 
 	/** Calcula qué arrastra la cola entera y abre el diálogo. */
 	async function preguntarPorLaCola() {
-		if (cola.value.length === 0) {
+		if (atendiendoLaCola) {
 			return;
 		}
-		const paquetes = [...cola.value];
-		await preparar({
-			clase: 'instalar',
-			paquetes,
-			conHuerfanas: false,
-			// Los nombres, separados por coma. La barra los recorta si no
-			// entran; un «3 programas» obligaría a abrir el detalle para saber
-			// cuáles son justo cuando hace falta saberlo.
-			titulo: paquetes.join(', '),
-		});
+		atendiendoLaCola = true;
+		try {
+			// Mientras se calcula qué arrastra la cola —y mientras el diálogo
+			// está abierto— se pueden apretar más botones. Quedándose con la foto
+			// vieja, cada uno terminaba en su propio informe y su propia
+			// transacción, que es justo lo que la cola venía a evitar. Así que se
+			// recalcula hasta que lo previsualizado sea la cola entera.
+			while (
+				cola.value.length > 0 &&
+				// Si se confirmó mientras se recalculaba, lo que queda en la cola
+				// ya no se pregunta: espera a que la transacción termine, como
+				// cualquier cosa encolada con algo corriendo.
+				!enCurso.value &&
+				!iniciando.value &&
+				!elInformeCubreLaCola()
+			) {
+				const paquetes = [...cola.value];
+				await preparar({
+					clase: 'instalar',
+					paquetes,
+					conHuerfanas: false,
+					// Los nombres, separados por coma. La barra los recorta si no
+					// entran; un «3 programas» obligaría a abrir el detalle para
+					// saber cuáles son justo cuando hace falta saberlo.
+					titulo: paquetes.join(', '),
+				});
+			}
+		} finally {
+			atendiendoLaCola = false;
+		}
 	}
 
 	/**
@@ -201,13 +265,29 @@ export const useOperaciones = defineStore('operaciones', () => {
 	}) {
 		falla.value = '';
 		preparando.value = true;
-		pendiente = que;
+		// `pendiente` no se toca hasta que el informe vuelva. Mientras se
+		// recalcula, el diálogo sigue mostrando el anterior, y lo que el botón
+		// de confirmar manda tiene que ser exactamente eso: los dos describen lo
+		// mismo o no describen nada. Puesto acá arriba, apretar confirmar
+		// mientras se recalculaba instalaba la cola nueva sobre un informe que
+		// hablaba de la vieja — que es justo lo que este diálogo existe para
+		// evitar.
+		const mio = ++ultimoInforme;
 		try {
-			informe.value = await previsualizar(que.clase, que.paquetes, que.conHuerfanas);
+			const calculado = await previsualizar(que.clase, que.paquetes, que.conHuerfanas);
+			// Se pidió otro informe mientras se calculaba éste, o se confirmó, o
+			// se canceló. Este ya no es de nadie.
+			if (mio !== ultimoInforme) {
+				return;
+			}
+			pendiente = que;
+			informe.value = calculado;
 			preguntando.value = true;
 		} catch (error) {
 			falla.value = String(error);
-			pendiente = null;
+			// El informe anterior, si había uno, se queda: sigue siendo válido y
+			// sigue siendo lo que la persona está viendo. Lo que falló es el
+			// recálculo.
 			sacarDeLaCola(que.paquetes);
 		} finally {
 			preparando.value = false;
@@ -222,6 +302,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		const { clase, paquetes, conHuerfanas, titulo: comoSeLlama } = pendiente;
 		preguntando.value = false;
 		pendiente = null;
+		anularElInformeEnVuelo();
 		// Sólo lo que se confirmó. Vaciando la cola entera se perdía lo que se
 		// hubiera sumado después de calcular la previsualización, y eso no se
 		// instalaba nunca.
@@ -241,6 +322,7 @@ export const useOperaciones = defineStore('operaciones', () => {
 		const cancelados = pendiente?.paquetes ?? [];
 		preguntando.value = false;
 		pendiente = null;
+		anularElInformeEnVuelo();
 		sacarDeLaCola(cancelados);
 	}
 

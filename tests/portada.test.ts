@@ -4,7 +4,13 @@
  *
  * Son requisitos de forma, y los de forma son los que se pierden callados: un
  * refactor de clases no rompe ninguna prueba de comportamiento y deja la
- * ventana pareciéndose a otra aplicación.
+ * ventana pareciéndose a otra aplicación. Por eso acá se lee el fuente y no se
+ * monta nada: lo que se comprueba **es** la forma.
+ *
+ * Lo que la tarjeta y el botón *hacen* —qué emiten, qué se apaga, qué no sube
+ * al padre— se fue a `tests/tarjeta-grande.test.ts` y `tests/boton-instalar.test.ts`,
+ * que los montan. Buscarlo acá como cadenas pasaba con el componente entero
+ * comentado.
  */
 
 import { describe, expect, test } from 'bun:test';
@@ -18,9 +24,6 @@ const boton = await Bun.file(
 const portada = await Bun.file(new URL('../src/views/DescubrirView.vue', import.meta.url)).text();
 const tarjeta = await Bun.file(
 	new URL('../src/components/tienda/TarjetaGrande.vue', import.meta.url)
-).text();
-const instalar = await Bun.file(
-	new URL('../src/components/tienda/BotonInstalar.vue', import.meta.url)
 ).text();
 const router = await Bun.file(new URL('../src/router/index.ts', import.meta.url)).text();
 
@@ -108,52 +111,6 @@ describe('la tarjeta', () => {
 
 	test('el ícono es grande', () => {
 		expect(tarjeta).toContain(':tamano="56"');
-	});
-
-	test('el botón no abre la ficha al apretarlo', () => {
-		// La tarjeta entera es clickeable; sin cortar la propagación, instalar
-		// además navegaba.
-		expect(instalar).toContain('@click.stop');
-	});
-
-	test('la tarjeta se puede abrir con el teclado', () => {
-		expect(tarjeta).toContain('tabindex="0"');
-		expect(tarjeta).toContain('@keydown.enter');
-	});
-});
-
-describe('el botón de instalar', () => {
-	test('dice algo distinto en cada estado', () => {
-		for (const estado of ['instalar', 'actualizar', 'instalada', 'receta']) {
-			expect(instalar).toContain(`'${estado}'`);
-		}
-		expect(instalar).toContain('t(`tarjeta.${estado}`)');
-	});
-
-	test('lo del AUR no ofrece instalar: manda a la receta', () => {
-		// Instalar del AUR es compilar un guión que subió cualquiera, y el
-		// control de tener el PKGBUILD delante vive en la ficha. Un botón de
-		// instalar acá lo saltearía —y además fallaría, porque el servicio sólo
-		// instala de los repositorios—.
-		expect(instalar).toContain("props.app.origen === 'aur'");
-		const decidir = instalar.slice(instalar.indexOf('function apretar'));
-		expect(decidir.slice(0, 200)).toContain("emit('receta')");
-		// Y la tarjeta lo convierte en abrir la ficha.
-		expect(tarjeta).toContain('@receta="emit(\'abrir\')"');
-	});
-
-	test('el teclado no dispara la tarjeta además del botón', () => {
-		// El botón con Enter ya emite un clic; sin cortar también el `keydown`,
-		// éste sube hasta la tarjeta y encima navega.
-		expect(instalar).toContain('@keydown.enter.stop');
-		expect(instalar).toContain('@keydown.space.stop');
-	});
-
-	test('se apaga con una operación en curso, salvo el de la receta', () => {
-		// El candado de pacman admite un solo dueño: el servicio rechazaría la
-		// segunda y es mejor que el botón lo diga antes. Leer una receta, en
-		// cambio, no toca nada y no hay motivo para impedirlo.
-		expect(instalar).toContain("ocupado && estado !== 'receta'");
 	});
 });
 
