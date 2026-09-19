@@ -5311,7 +5311,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vasak-store"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "alpm",
  "alpm-utils",
@@ -5344,7 +5344,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-store-daemon"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "alpm",
  "alpm-utils",
@@ -5361,7 +5361,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-store-protocol"
-version = "0.4.0"
+version = "0.4.1"
 dependencies = [
  "serde",
  "serde_json",
