@@ -143,7 +143,7 @@ watch(
         <li
           v-for="portable in portables"
           :key="portable.ruta"
-          class="flex flex-wrap items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/40 p-2">
+          class="flex flex-wrap items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-2">
           <IconoDeApp :icono="{ tema: ['application-x-executable'] }" :tamano="28" />
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="truncate text-sm">{{ portable.titulo }}</span>

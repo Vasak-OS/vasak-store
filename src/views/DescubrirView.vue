@@ -2,9 +2,9 @@
 /**
  * La portada de la tienda.
  *
- * Dos paneles: la barra lateral —la misma de Configuración— con la búsqueda
- * arriba y las categorías debajo, y a la derecha las aplicaciones con su ícono
- * y su botón de instalar.
+ * Dos paneles: la barra lateral —la de `@vasakgroup/vue-libvasak`, la misma que
+ * usan Configuración y el monitor— con la búsqueda arriba y las categorías
+ * debajo, y a la derecha las aplicaciones con su ícono y su botón de instalar.
  *
  * # Por qué instalar no pasa por la ficha
  *
@@ -21,11 +21,9 @@
  * ventana reabierta perdía dónde estaba.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { SideBar, type SidebarCategory } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import BarraLateral from '@/components/sidebar/BarraLateral.vue';
-import BotonLateral from '@/components/sidebar/BotonLateral.vue';
-import GrupoLateral from '@/components/sidebar/GrupoLateral.vue';
 import BarraDeBusqueda from '@/components/tienda/BarraDeBusqueda.vue';
 import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
 import TarjetaGrande from '@/components/tienda/TarjetaGrande.vue';
@@ -112,6 +110,38 @@ function abrir(app: Tarjeta) {
 /** Las categorías que la barra lateral muestra, con sus cuentas. */
 const categorias = computed(() => portada.value?.categorias ?? []);
 
+/**
+ * Las categorías como las pide la barra compartida: un grupo con «todo»
+ * adelante y cada categoría del catálogo detrás, con su cuenta de insignia.
+ */
+const grupos = computed<SidebarCategory[]>(() => [
+	{
+		id: 'categorias',
+		title: t('categorias.titulo'),
+		items: [
+			{ id: PORTADA, label: t('descubrir.todo'), icon: 'go-home' },
+			...categorias.value.map((grupo) => ({
+				id: grupo.id,
+				label: t(`categorias.${grupo.id}`),
+				icon: grupo.icono,
+				badge: grupo.cuantas,
+			})),
+		],
+	},
+]);
+
+/**
+ * Qué elemento de la barra queda marcado.
+ *
+ * Buscando no es ninguno, y eso no se puede decir con la categoría vacía
+ * porque la categoría vacía **es** «todo». De ahí el identificador que no
+ * existe en el listado: con él, ningún botón se marca mientras hay una
+ * búsqueda puesta, que es lo que corresponde — los resultados no salen de una
+ * categoría.
+ */
+const SIN_SELECCION = '\u0000buscando';
+const seleccionada = computed(() => (buscando.value ? SIN_SELECCION : categoria.value));
+
 const hayPortada = computed(
 	() => !buscando.value && categoria.value === PORTADA && portada.value !== null
 );
@@ -156,36 +186,25 @@ watch(
 
 <template>
   <div class="flex min-h-0 flex-1 gap-1 p-1">
-    <BarraLateral :titulo="t('app.nombre')" :subtitulo="t('secciones.descubrir')">
-      <template #busqueda>
+    <SideBar
+      :title="t('app.nombre')"
+      :subtitle="t('secciones.descubrir')"
+      :categories="grupos"
+      :model-value="seleccionada"
+      :collapse-label="t('barraLateral.plegar')"
+      :expand-label="t('barraLateral.desplegar')"
+      @change="(id: string) => ir(id)">
+      <!-- La búsqueda va en la cabecera, antes que cualquier categoría: en una
+           tienda, buscar es lo primero que alguien hace. -->
+      <template #header>
         <BarraDeBusqueda
           :valor="texto"
           @buscar="(q: string) => ir(q ? '' : categoria, q)" />
       </template>
-
-      <template #default="{ plegada }">
-        <GrupoLateral :titulo="t('categorias.titulo')" :plegado="plegada">
-          <BotonLateral
-            :etiqueta="t('descubrir.todo')"
-            icono="go-home"
-            :plegado="plegada"
-            :activo="categoria === PORTADA && !buscando"
-            @click="ir(PORTADA)" />
-          <BotonLateral
-            v-for="grupo in categorias"
-            :key="grupo.id"
-            :etiqueta="t(`categorias.${grupo.id}`)"
-            :icono="grupo.icono"
-            :insignia="grupo.cuantas"
-            :plegado="plegada"
-            :activo="categoria === grupo.id && !buscando"
-            @click="ir(grupo.id)" />
-        </GrupoLateral>
-      </template>
-    </BarraLateral>
+    </SideBar>
 
     <main
-      class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded-corner border border-ui-border bg-ui-bg/80 p-4">
+      class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded-corner border border-ui-border bg-ui-surface/70 p-4">
       <IndicadorDeCarga v-if="cargando" />
 
       <EstadoVacio

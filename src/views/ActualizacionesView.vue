@@ -101,7 +101,7 @@ watch(
       <li
         v-for="app in lista"
         :key="app.nombre"
-        class="flex items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/40 p-3">
+        class="flex items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-3">
         <IconoDeApp :icono="app.icono" :tamano="32" />
         <span class="flex min-w-0 flex-1 flex-col">
           <span class="truncate font-medium text-sm">{{ app.titulo }}</span>

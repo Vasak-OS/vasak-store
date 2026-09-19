@@ -16,6 +16,8 @@
 
 import { GlobalRegistrator } from '@happy-dom/global-registrator';
 import { mock } from 'bun:test';
+import * as nucleo from '@tauri-apps/api/core';
+import * as eventos from '@tauri-apps/api/event';
 import './complemento-vue';
 import {
 	convertFileSrc,
@@ -28,7 +30,13 @@ import {
 
 GlobalRegistrator.register();
 
-mock.module('@tauri-apps/api/core', () => ({ invoke, convertFileSrc }));
-mock.module('@tauri-apps/api/event', () => ({ listen }));
+// Los dobles **encima** del módulo de verdad, no en su lugar. Reemplazarlo
+// entero deja sin exportar lo que no se nombra acá, y los componentes de
+// `@vasakgroup/vue-libvasak` vienen compilados: importan de `@tauri-apps/api`
+// cosas internas —`SERIALIZE_TO_IPC_FN`, por ejemplo— que el empaquetado ya
+// resolvió y que acá desaparecían, con lo que fallaba el import y no la
+// prueba.
+mock.module('@tauri-apps/api/core', () => ({ ...nucleo, invoke, convertFileSrc }));
+mock.module('@tauri-apps/api/event', () => ({ ...eventos, listen }));
 mock.module('@vasakgroup/tauri-plugin-i18n', () => ({ useI18n }));
 mock.module('@vasakgroup/plugin-vicons', () => ({ getIconSource, getSymbolSource }));
