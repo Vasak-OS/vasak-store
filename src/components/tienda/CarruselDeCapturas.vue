@@ -82,7 +82,7 @@ onBeforeUnmount(() => observador?.disconnect());
         class="flex shrink-0 snap-start flex-col gap-1">
         <button
           type="button"
-          class="overflow-hidden rounded-corner border border-ui-border bg-ui-surface/40 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
+          class="overflow-hidden rounded-corner border border-ui-border bg-ui-surface/70 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
           :aria-label="captura.titulo || t('detalle.capturas')"
           @click="ampliada = captura">
           <img

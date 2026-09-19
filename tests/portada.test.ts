@@ -11,78 +11,22 @@
  * al padre— se fue a `tests/tarjeta-grande.test.ts` y `tests/boton-instalar.test.ts`,
  * que los montan. Buscarlo acá como cadenas pasaba con el componente entero
  * comentado.
+ *
+ * Y la barra lateral se fue entera a `tests/barra-lateral-compartida.test.ts`,
+ * que la monta: lo que había acá vigilaba que la copia local siguiera igual a
+ * la de Configuración, y ya no hay copia que vigilar — es la misma de
+ * `@vasakgroup/vue-libvasak`.
  */
 
 import { describe, expect, test } from 'bun:test';
 
-const barra = await Bun.file(
-	new URL('../src/components/sidebar/BarraLateral.vue', import.meta.url)
-).text();
-const boton = await Bun.file(
-	new URL('../src/components/sidebar/BotonLateral.vue', import.meta.url)
-).text();
 const portada = await Bun.file(new URL('../src/views/DescubrirView.vue', import.meta.url)).text();
 const tarjeta = await Bun.file(
 	new URL('../src/components/tienda/TarjetaGrande.vue', import.meta.url)
 ).text();
 const router = await Bun.file(new URL('../src/router/index.ts', import.meta.url)).text();
 
-describe('la barra lateral', () => {
-	test('usa las clases de la de Configuración', () => {
-		// Copiadas de `SidebarComponent` de vasak-settings. Si allá cambian, acá
-		// hay que seguirlas: el punto es que las dos ventanas se lean como
-		// partes del mismo escritorio.
-		for (const clase of [
-			'rounded-corner',
-			'border-ui-border',
-			'bg-ui-bg/80',
-			'w-[84px]',
-			'md:w-72',
-		]) {
-			expect(barra).toContain(clase);
-		}
-	});
-
-	test('se pliega, y plegada no deja un campo de texto ilegible', () => {
-		expect(barra).toContain('plegada');
-		// El ancho plegado es el del ícono; un campo de búsqueda ahí no se podría
-		// ni leer ni escribir.
-		const cabecera = barra.slice(barra.indexOf('<header'), barra.indexOf('</header>'));
-		expect(cabecera).toContain('v-if="!plegada"');
-		expect(cabecera).toContain('name="busqueda"');
-	});
-
-	test('la búsqueda va antes que las categorías', () => {
-		const busqueda = barra.indexOf('name="busqueda"');
-		const contenido = barra.indexOf('<slot :plegada="plegada"');
-		expect(busqueda).toBeGreaterThan(-1);
-		expect(contenido).toBeGreaterThan(busqueda);
-	});
-
-	test('el elemento activo se marca para quien no ve el color', () => {
-		expect(boton).toContain('aria-current');
-	});
-});
-
 describe('la portada', () => {
-	test('pone la búsqueda en la barra lateral y no sobre el contenido', () => {
-		const lateral = portada.slice(
-			portada.indexOf('<BarraLateral'),
-			portada.indexOf('</BarraLateral>')
-		);
-		expect(lateral).toContain('BarraDeBusqueda');
-		expect(portada.indexOf('BarraDeBusqueda')).toBeLessThan(portada.indexOf('<main'));
-	});
-
-	test('las categorías son elementos de la barra lateral', () => {
-		const lateral = portada.slice(
-			portada.indexOf('<BarraLateral'),
-			portada.indexOf('</BarraLateral>')
-		);
-		expect(lateral).toContain('v-for="grupo in categorias"');
-		expect(lateral).toContain('BotonLateral');
-	});
-
 	test('la categoría y el texto viven en la ruta', () => {
 		// Guardados sólo en memoria, el botón de atrás salía de Descubrir en vez
 		// de volver a la categoría anterior.

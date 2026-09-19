@@ -30,7 +30,7 @@ const captura = computed(() =>
 
 <template>
   <article
-    class="group flex cursor-pointer flex-col overflow-hidden rounded-corner border border-ui-border bg-ui-surface/40 transition-all duration-200 hover:-translate-y-0.5 hover:border-ui-border-strong hover:bg-ui-surface hover:shadow-lg"
+    class="group flex cursor-pointer flex-col overflow-hidden rounded-corner border border-ui-border bg-ui-surface/70 transition-all duration-200 hover:-translate-y-0.5 hover:border-ui-border-strong hover:bg-ui-surface hover:shadow-lg"
     tabindex="0"
     role="button"
     @click="emit('abrir')"

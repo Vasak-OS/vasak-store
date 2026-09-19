@@ -27,7 +27,7 @@ function abrir() {
 <template>
   <button
     type="button"
-    class="flex w-full items-start gap-3 rounded-corner border border-ui-border bg-ui-surface/40 p-3 text-left transition-colors hover:bg-ui-surface"
+    class="flex w-full items-start gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-3 text-left transition-colors hover:bg-ui-surface"
     @click="abrir">
     <IconoDeApp :icono="app.icono" :tamano="40" />
     <span class="flex min-w-0 flex-1 flex-col gap-1">

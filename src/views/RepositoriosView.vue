@@ -151,7 +151,7 @@ onMounted(async () => {
       <li
         v-for="repositorio in lista"
         :key="repositorio.nombre"
-        class="flex items-start gap-3 rounded-corner border border-ui-border bg-ui-surface/40 p-3">
+        class="flex items-start gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-3">
         <InterruptorDeOpcion
           :valor="repositorio.activo"
           :deshabilitado="repositorio.protegido"
