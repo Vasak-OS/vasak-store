@@ -8,7 +8,7 @@
  * lo que queda por comprobar es lo que la tienda le pone adentro y **dónde**.
  */
 
-import { describe, expect, test } from 'bun:test';
+import { afterEach, describe, expect, test } from 'bun:test';
 import { AppBar, WindowControls, WindowFrame } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
@@ -17,16 +17,39 @@ import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { montarVista } from './montar';
 
 /** La ventana entera, con el router y pinia que el layout necesita. */
-function montarLaVentana() {
-	return montarVista(WindowAppLayout);
+async function montarLaVentana() {
+	const abierta = await montarVista(WindowAppLayout);
+	abiertas.push(abierta.vista);
+	return abierta;
 }
 
-/** Lo que se dibuja dentro de una ranura de la barra. */
+/** Lo que cada llamada a `ranura()` dejó montado, para desmontarlo después. */
+const sueltos: VueWrapper[] = [];
+
+/**
+ * Lo que se dibuja dentro de una ranura de la barra.
+ *
+ * Monta un componente aparte, así que lo que devuelve **no** cuelga de `vista`
+ * y no se va con ella: se anota acá y el `afterEach` lo desmonta. Sin eso cada
+ * prueba deja un componente vivo, con sus oyentes puestos, hasta que termina el
+ * archivo.
+ */
 function ranura(ventana: VueWrapper, nombre: string) {
 	const barra = ventana.findComponent(AppBar);
 	const dibujar = (barra.vm.$slots as Record<string, (() => unknown) | undefined>)[nombre];
-	return dibujar ? mount({ render: () => dibujar() }) : null;
+	if (!dibujar) return null;
+	const suelto = mount({ render: () => dibujar() });
+	sueltos.push(suelto);
+	return suelto;
 }
+
+/** Y la ventana, que se monta en cada prueba de este bloque. */
+const abiertas: VueWrapper[] = [];
+
+afterEach(() => {
+	for (const suelto of sueltos.splice(0)) suelto.unmount();
+	for (const abierta of abiertas.splice(0)) abierta.unmount();
+});
 
 const selector = await Bun.file(
 	new URL('../src/components/barra/SelectorDeSeccion.vue', import.meta.url)
@@ -93,7 +116,6 @@ describe('la ventana', () => {
 		// `rounded-corner-window` es la esquina de la ventana y sale del marco.
 		// Con dos, el borde y el fondo se dibujan dos veces y se ven los dos.
 		expect(vista.findAll('.rounded-corner-window').length).toBe(1);
-		vista.unmount();
 	});
 
 	test('con los tres botones y su nombre traducido', async () => {
@@ -105,7 +127,6 @@ describe('la ventana', () => {
 				.findAll('button')
 				.map((boton) => boton.attributes('aria-label'))
 		).toEqual(['ventana.minimizar', 'ventana.maximizar', 'ventana.cerrar']);
-		vista.unmount();
 	});
 
 	test('el logo va en `identidad`, pegado al principio', async () => {
@@ -115,8 +136,6 @@ describe('la ventana', () => {
 		const dentro = ranura(vista, 'identidad');
 
 		expect(dentro?.findComponent(LogoDeLaTienda).exists()).toBe(true);
-		dentro?.unmount();
-		vista.unmount();
 	});
 
 	test('el selector va centrado en lo que sobra, y no en la ventana', async () => {
@@ -131,7 +150,6 @@ describe('la ventana', () => {
 		const caja = selector.element.parentElement as HTMLElement;
 		expect(caja.className).toContain('flex-1');
 		expect(caja.className).toContain('justify-center');
-		vista.unmount();
 	});
 
 	test('y la ventana se puede arrastrar desde donde está el selector', async () => {
@@ -143,6 +161,5 @@ describe('la ventana', () => {
 		const caja = vista.findComponent(SelectorDeSeccion).element.parentElement as HTMLElement;
 
 		expect(caja.hasAttribute('data-tauri-drag-region')).toBe(true);
-		vista.unmount();
 	});
 });
