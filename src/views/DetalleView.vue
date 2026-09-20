@@ -8,6 +8,7 @@
  * requiera haber tenido el PKGBUILD delante.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { EmptyState } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import CarruselDeCapturas from '@/components/tienda/CarruselDeCapturas.vue';
@@ -15,7 +16,6 @@ import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualiza
 import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
 import InsigniaDeOrigen from '@/components/tienda/InsigniaDeOrigen.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import ModalBase from '@/components/ui/ModalBase.vue';
 import { useOperaciones } from '@/stores/operaciones';
@@ -134,11 +134,11 @@ watch(
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-auto">
     <IndicadorDeCarga v-if="cargando" />
-    <EstadoVacio
+    <EmptyState
       v-else-if="!app"
-      icono="dialog-error"
-      :titulo="t('busqueda.sinResultados')"
-      :nota="falla" />
+      icon="dialog-error"
+      :title="t('busqueda.sinResultados')"
+      :note="falla" />
 
     <template v-else>
       <!-- La cabecera, sobre un fondo propio: es la tarjeta de presentación de

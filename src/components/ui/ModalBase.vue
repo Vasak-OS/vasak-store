@@ -1,59 +1,45 @@
 <script lang="ts" setup>
 /**
- * Una ventana modal.
+ * Una ventana modal de la tienda: la de la librería, con la disposición de acá.
  *
- * Con Escape para cerrar y el foco puesto adentro al abrir: sin eso el Tab
- * sigue recorriendo lo que quedó atrás, que es invisible pero alcanzable, y el
- * teclado se pierde.
+ * Lo difícil ya no vive en este archivo. El foco que entra al abrir, el Tab que
+ * da la vuelta adentro en vez de seguir recorriendo lo que quedó detrás del
+ * velo —invisible pero alcanzable—, el foco que vuelve a donde estaba al
+ * cerrar, Escape, y el `aria-labelledby` atado al título: todo eso es de
+ * `Dialog`. Esta copia declaraba `aria-modal` y cumplía sólo una parte.
+ *
+ * Lo que la tienda pone encima es su forma: más ancha que el diálogo por
+ * omisión —adentro va la receta de un paquete y una captura de pantalla— y con
+ * el cuerpo desplazándose por su cuenta entre una cabecera y un pie fijos, que
+ * es lo que deja leer una receta larga sin perder los botones de vista.
  */
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import {
+	Dialog,
+	DialogContent,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from '@vasakgroup/vue-libvasak';
 
-const props = defineProps<{ abierto: boolean; titulo: string }>();
+defineProps<{ abierto: boolean; titulo: string }>();
 const emit = defineEmits<{ cerrar: [] }>();
-
-const caja = ref<HTMLElement | null>(null);
-
-function alTeclear(evento: KeyboardEvent) {
-	if (evento.key === 'Escape' && props.abierto) {
-		emit('cerrar');
-	}
-}
-
-watch(
-	() => props.abierto,
-	async (abierto) => {
-		if (abierto) {
-			await nextTick();
-			caja.value?.focus();
-		}
-	}
-);
-
-onMounted(() => document.addEventListener('keydown', alTeclear));
-onUnmounted(() => document.removeEventListener('keydown', alTeclear));
 </script>
+
 <template>
-  <div
-    v-if="abierto"
-    class="absolute inset-0 z-50 flex items-center justify-center bg-ui-border-dark/40 p-6"
-    @click.self="emit('cerrar')">
-    <div
-      ref="caja"
-      tabindex="-1"
-      role="dialog"
-      aria-modal="true"
-      :aria-label="titulo"
-      class="flex max-h-full w-full max-w-2xl flex-col overflow-hidden rounded-corner border border-ui-border bg-ui-bg shadow-lg">
-      <header class="flex items-center justify-between border-ui-border border-b px-4 py-3">
-        <h2 class="font-medium text-sm">{{ titulo }}</h2>
-        <slot name="acciones" />
-      </header>
+  <Dialog :open="abierto" @update:open="(sigue: boolean) => !sigue && emit('cerrar')">
+    <!-- `p-0` porque el relleno va por tramo: la cabecera y el pie lo llevan
+         con su borde, y el cuerpo lo lleva adentro de lo que se desplaza. Con
+         el relleno afuera, el contenido se iba por debajo del borde al rodar. -->
+    <DialogContent class="flex max-h-[85vh] w-full max-w-2xl flex-col overflow-hidden p-0">
+      <DialogHeader class="border-ui-border border-b px-4 py-3">
+        <DialogTitle class="font-medium text-sm">{{ titulo }}</DialogTitle>
+      </DialogHeader>
       <div class="min-h-0 flex-1 overflow-auto p-4">
         <slot />
       </div>
-      <footer v-if="$slots.pie" class="flex justify-end gap-2 border-ui-border border-t px-4 py-3">
+      <DialogFooter v-if="$slots.pie" class="border-ui-border border-t px-4 py-3">
         <slot name="pie" />
-      </footer>
-    </div>
-  </div>
+      </DialogFooter>
+    </DialogContent>
+  </Dialog>
 </template>

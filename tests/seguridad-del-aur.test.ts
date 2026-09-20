@@ -15,7 +15,7 @@
  * se aprieta.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
 import InsigniaDeOrigen from '@/components/tienda/InsigniaDeOrigen.vue';
 import type { Tarjeta } from '@/tools/api';
@@ -23,7 +23,7 @@ import DescubrirView from '@/views/DescubrirView.vue';
 import DetalleView from '@/views/DetalleView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
 import { sinArrastre, unaApp, unaFicha } from './ejemplos';
-import { asentar, montarVista } from './montar';
+import { asentar, desmontarTodo, elDialogo, hayDialogo, montarVista } from './montar';
 
 const es = await Bun.file(new URL('../src-tauri/locales/es.yml', import.meta.url)).text();
 const en = await Bun.file(new URL('../src-tauri/locales/en.yml', import.meta.url)).text();
@@ -52,6 +52,8 @@ function elBotonPrincipal(vista: ReturnType<typeof mount>) {
 beforeEach(() => {
 	olvidarTodo();
 });
+
+afterEach(desmontarTodo);
 
 describe('la insignia', () => {
 	test('la del AUR se distingue por color y no sólo por texto', () => {
@@ -154,16 +156,34 @@ describe('en la ficha', () => {
 		await elBotonPrincipal(vista).trigger('click');
 		await asentar();
 
-		const dialogo = vista.get('[role="dialog"]');
+		const dialogo = elDialogo();
 		expect(dialogo.findAll('button').map((boton) => boton.text())).toContain(
 			'detalle.compilarEInstalar'
 		);
-		// Y el que compila está adentro del diálogo, no suelto en la ficha.
+		// Y sigue sin haber ninguno suelto en la ficha. Desde que el diálogo se
+		// teletransporta al `body` esto es más fuerte que antes: la ficha y el
+		// diálogo son dos árboles distintos, así que contar acá cuenta de verdad
+		// sólo lo que quedó en la pantalla de atrás.
 		expect(
-			vista
-				.findAll('button')
-				.filter((boton) => boton.text() === 'detalle.compilarEInstalar')
-		).toHaveLength(1);
+			vista.findAll('button').filter((boton) => boton.text() === 'detalle.compilarEInstalar')
+		).toHaveLength(0);
+	});
+
+	test('y Escape lo cierra sin compilar nada', async () => {
+		// El diálogo pasó a ser el de la librería; lo que sigue siendo de la
+		// tienda es el cable: que «se cerró» llegue como `cerrar` a la vista.
+		// Sin él, el diálogo se cierra por dentro y la vista nunca se entera —o
+		// al revés, no se cierra nunca y el modal queda trabado—.
+		const { vista } = await laFichaDeYay();
+		await elBotonPrincipal(vista).trigger('click');
+		await asentar();
+		expect(hayDialogo()).toBe(true);
+
+		document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+		await asentar();
+
+		expect(hayDialogo()).toBe(false);
+		expect(pedidos('instalar_del_aur')).toHaveLength(0);
 	});
 
 	test('y el diálogo avisa que eso es lo que se va a ejecutar', async () => {
@@ -172,7 +192,7 @@ describe('en la ficha', () => {
 		await elBotonPrincipal(vista).trigger('click');
 		await asentar();
 
-		expect(vista.get('[role="dialog"]').text()).toContain('detalle.recetaNota');
+		expect(elDialogo().text()).toContain('detalle.recetaNota');
 	});
 
 	test('si la receta no se pudo traer, no se abre nada que se pueda confirmar', async () => {
@@ -188,7 +208,7 @@ describe('en la ficha', () => {
 		await elBotonPrincipal(vista).trigger('click');
 		await asentar();
 
-		expect(vista.find('[role="dialog"]').exists()).toBe(false);
+		expect(hayDialogo()).toBe(false);
 		expect(vista.text()).toContain('no se pudo contactar al AUR');
 	});
 });
@@ -212,7 +232,7 @@ describe('la receta se muestra, no se ejecuta', () => {
 		await elBotonPrincipal(vista).trigger('click');
 		await asentar();
 
-		const receta = vista.get('[role="dialog"] pre');
+		const receta = elDialogo().get('pre');
 		expect(receta.text()).toContain('<script>fetch("http://ejemplo/robado")</script>');
 		expect(receta.text()).toContain('<img src=x onerror="alert(1)">');
 		// Y nada de eso llegó a ser un elemento.
@@ -230,7 +250,7 @@ describe('la receta se muestra, no se ejecuta', () => {
 		await elBotonPrincipal(vista).trigger('click');
 		await asentar();
 
-		expect(vista.get('[role="dialog"] pre').text()).toContain('echo "a > b && c"');
+		expect(elDialogo().get('pre').text()).toContain('echo "a > b && c"');
 	});
 });
 

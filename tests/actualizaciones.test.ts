@@ -12,12 +12,12 @@
  * `.vue`— ni había una prueba que lo apretara. Esta lo aprieta.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { useOperaciones } from '@/stores/operaciones';
 import ActualizacionesView from '@/views/ActualizacionesView.vue';
 import { emitir, olvidarTodo, pedidos, responder } from './dobles';
 import { unaApp } from './ejemplos';
-import { asentar, montarVista } from './montar';
+import { asentar, desmontarTodo, montarVista } from './montar';
 
 /** Abre la pantalla con lo que el backend diga que se puede actualizar. */
 async function laPantalla(pendientes = [unaApp({ instalada: true, actualizable: '5.3.0-1' })]) {
@@ -41,6 +41,8 @@ function elBoton(vista: Awaited<ReturnType<typeof laPantalla>>['vista'], clave: 
 beforeEach(() => {
 	olvidarTodo();
 });
+
+afterEach(desmontarTodo);
 
 describe('comprobar de nuevo', () => {
 	test('baja las bases de los repositorios', async () => {

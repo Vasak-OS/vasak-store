@@ -12,13 +12,13 @@
  * Acá se le pasa uno y se mira si hay enlace.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
 import CarruselDeCapturas from '@/components/tienda/CarruselDeCapturas.vue';
 import DetalleView from '@/views/DetalleView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
 import { sinArrastre, unaFicha, unasCapturas } from './ejemplos';
-import { asentar, montarVista } from './montar';
+import { asentar, desmontarTodo, elDialogo, hayDialogo, montarVista, nombreDelDialogo } from './montar';
 
 /** El botón se lee del fuente; el porqué está abajo, con su prueba. */
 const botonAccion = await Bun.file(
@@ -37,6 +37,8 @@ async function abrirLaFicha(ficha = unaFicha(), donde = '/app/repositorio/krita'
 beforeEach(() => {
 	olvidarTodo();
 });
+
+afterEach(desmontarTodo);
 
 describe('el enlace al sitio', () => {
 	test('se dibuja cuando la dirección es https', async () => {
@@ -164,10 +166,10 @@ describe('lo del AUR', () => {
 
 		// Primero la receta, y todavía nada instalándose.
 		expect(pedidos('receta_del_aur')).toHaveLength(1);
-		expect(vista.get('[role="dialog"]').text()).toContain('pkgname=yay');
+		expect(elDialogo().text()).toContain('pkgname=yay');
 		expect(pedidos('instalar_del_aur')).toHaveLength(0);
 
-		const dialogo = vista.get('[role="dialog"]');
+		const dialogo = elDialogo();
 		const compilar = dialogo
 			.findAll('button')
 			.find((boton) => boton.text() === 'detalle.compilarEInstalar');
@@ -191,8 +193,7 @@ describe('lo del AUR', () => {
 
 		await vista.get('header button[class*="bg-primary"]').trigger('click');
 		await asentar();
-		const compilar = vista
-			.get('[role="dialog"]')
+		const compilar = elDialogo()
 			.findAll('button')
 			.find((boton) => boton.text() === 'detalle.compilarEInstalar');
 		expect(compilar).toBeDefined();
@@ -267,11 +268,11 @@ describe('las capturas', () => {
 		// Es lo que uno espera de una imagen chica que muestra una pantalla
 		// llena de detalles.
 		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(3) } });
-		expect(carrusel.find('[role="dialog"]').exists()).toBe(false);
+		expect(hayDialogo()).toBe(false);
 
 		await carrusel.findAll('figure button')[1]?.trigger('click');
 
-		expect(carrusel.get('[role="dialog"]').attributes('aria-label')).toBe('Captura 2');
+		expect(nombreDelDialogo()).toBe('Captura 2');
 	});
 
 	test('sin capturas no dibuja nada', async () => {

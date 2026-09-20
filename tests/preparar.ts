@@ -30,6 +30,22 @@ import {
 
 GlobalRegistrator.register();
 
+/**
+ * El objeto que Tauri le inyecta a la ventana.
+ *
+ * `@tauri-apps/api/window` y `/webview` lo leen sin preguntar
+ * —`window.__TAURI_INTERNALS__.metadata.currentWindow.label`—, así que sin esto
+ * cualquier vista que pida la ventana actual revienta con un «undefined is not
+ * an object» que no nombra a Tauri por ningún lado. No hacía falta hasta ahora
+ * porque ninguna prueba montaba una de esas vistas.
+ */
+(globalThis as unknown as { __TAURI_INTERNALS__: unknown }).__TAURI_INTERNALS__ = {
+	metadata: { currentWindow: { label: 'main' }, currentWebview: { label: 'main' } },
+	invoke,
+	convertFileSrc,
+	transformCallback: (callback: unknown) => callback,
+};
+
 // Los dobles **encima** del módulo de verdad, no en su lugar. Reemplazarlo
 // entero deja sin exportar lo que no se nombra acá, y los componentes de
 // `@vasakgroup/vue-libvasak` vienen compilados: importan de `@tauri-apps/api`

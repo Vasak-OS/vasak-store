@@ -10,15 +10,13 @@
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { EmptyState, SearchField, SwitchToggle } from '@vasakgroup/vue-libvasak';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
-import BarraDeBusqueda from '@/components/tienda/BarraDeBusqueda.vue';
 import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
 import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
 import RejillaDeApps from '@/components/tienda/RejillaDeApps.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
-import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import {
 	type AppImage,
@@ -33,6 +31,9 @@ import { bytes } from '@/tools/formato';
 
 const { t } = useI18n();
 const operaciones = useOperaciones();
+
+/** Cuánto se espera tras la última tecla antes de volver a pedir la lista. */
+const ESPERA = 250;
 
 const filtro = ref('');
 const lista = ref<Tarjeta[]>([]);
@@ -116,18 +117,21 @@ watch(
     <div class="flex flex-wrap items-center gap-3">
       <h1 class="font-medium text-lg">{{ t('instaladas.titulo') }}</h1>
       <label class="ml-auto flex items-center gap-2 text-sm" :title="t('instaladas.conHuerfanas')">
-        <InterruptorDeOpcion
-          :valor="conHuerfanas"
-          :etiqueta="t('instaladas.conHuerfanas')"
-          @cambiar="(valor) => (conHuerfanas = valor)" />
+        <SwitchToggle
+          :model-value="conHuerfanas"
+          :label="t('instaladas.conHuerfanas')"
+          @update:model-value="(valor) => (conHuerfanas = valor)" />
         {{ t('instaladas.conHuerfanas') }}
       </label>
     </div>
 
-    <BarraDeBusqueda
-      :valor="filtro"
-      :marcador="t('instaladas.filtro')"
-      @buscar="(texto) => { filtro = texto; cargar(); }" />
+    <!-- El filtro se escribe acá y se consulta al backend cuando se deja de
+         escribir: `cargar` pide la lista instalada, que no es gratis. -->
+    <SearchField
+      v-model="filtro"
+      :label="t('instaladas.filtro')"
+      :debounce="ESPERA"
+      @search="cargar" />
 
     <p v-if="operaciones.falla || falla" class="text-sm text-status-error">
       {{ operaciones.falla || falla }}
@@ -176,14 +180,14 @@ watch(
     </section>
 
     <IndicadorDeCarga v-if="cargando" />
-    <EstadoVacio
+    <EmptyState
       v-else-if="falla"
-      icono="dialog-error"
-      :titulo="t('comun.noSePudoLeer')"
-      :nota="falla">
+      icon="dialog-error"
+      :title="t('comun.noSePudoLeer')"
+      :note="falla">
       <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
-    </EstadoVacio>
-    <EstadoVacio v-else-if="lista.length === 0" :titulo="t('instaladas.vacio')" />
+    </EmptyState>
+    <EmptyState v-else-if="lista.length === 0" :title="t('instaladas.vacio')" />
     <RejillaDeApps v-else :apps="lista" />
 
     <DialogoDePrevisualizacion

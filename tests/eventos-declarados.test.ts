@@ -1,12 +1,14 @@
 /**
- * Los dos componentes que ahora declaran lo que emiten.
+ * El componente que declara lo que emite.
  *
- * `BotonAccion` no declaraba `click` —y lo usan veinticuatro botones: instalar,
- * actualizar, desinstalar, agregar un repositorio— y `CampoDeTexto` no
- * declaraba `keydown`, que es cómo la búsqueda se dispara con Enter. Los dos
- * caían sobre el elemento de adentro por el paso de atributos: funcionaban,
- * pero no estaban escritos en ningún lado, y con `strictTemplates` pasaron a
- * ser un error.
+ * `BotonAccion` no declaraba `click`, y lo usan veinticuatro botones: instalar,
+ * actualizar, desinstalar, agregar un repositorio. Caía sobre el elemento de
+ * adentro por el paso de atributos: funcionaba, pero no estaba escrito en
+ * ningún lado, y con `strictTemplates` pasó a ser un error.
+ *
+ * El campo de texto estaba acá por lo mismo y ya no: es el `TextInput` de la
+ * librería, y la búsqueda dejó de dispararse con un `@keydown` propio —la
+ * dispara `SearchField`, con Enter o cuando se deja de escribir—.
  *
  * Declararlos tiene un filo: Vue saca de los atributos **todo** evento
  * declarado, así que el reenvío al elemento de adentro no es opcional. Sin él
@@ -17,7 +19,6 @@
 import { afterEach, describe, expect, test } from 'bun:test';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import CampoDeTexto from '@/components/ui/CampoDeTexto.vue';
 
 let vista: VueWrapper | null = null;
 
@@ -47,26 +48,5 @@ describe('BotonAccion', () => {
 		await vista.get('button').trigger('click');
 
 		expect(vista.emitted('click')).toBeUndefined();
-	});
-});
-
-describe('CampoDeTexto', () => {
-	test('la tecla llega a quien lo usa', async () => {
-		// Es cómo la búsqueda se dispara con Enter.
-		vista = mount(CampoDeTexto, { props: { modelValue: '' } });
-
-		await vista.get('input').trigger('keydown', { key: 'Enter' });
-
-		expect(vista.emitted('keydown')).toHaveLength(1);
-	});
-
-	test('y lo que se escribe sigue llegando', async () => {
-		// El `@input` y el `@keydown` conviven en el mismo elemento: declarar el
-		// segundo no puede llevarse puesto al primero.
-		vista = mount(CampoDeTexto, { props: { modelValue: '' } });
-
-		await vista.get('input').setValue('gimp');
-
-		expect(vista.emitted('update:modelValue')?.[0]).toEqual(['gimp']);
 	});
 });
