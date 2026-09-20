@@ -14,7 +14,9 @@ import { mount, type VueWrapper } from '@vue/test-utils';
 import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
 import SelectorDeSeccion from '@/components/barra/SelectorDeSeccion.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
-import { montarVista } from './montar';
+import { desmontarTodo, montarVista } from './montar';
+
+afterEach(desmontarTodo);
 
 /** La ventana entera, con el router y pinia que el layout necesita. */
 async function montarLaVentana() {

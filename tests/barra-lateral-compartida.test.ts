@@ -14,12 +14,12 @@
  * Cómo se pliega y cómo se ve es de la librería y se prueba allá.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { SideBar, SideButton } from '@vasakgroup/vue-libvasak';
 import DescubrirView from '@/views/DescubrirView.vue';
 import { olvidarTodo, responder } from './dobles';
 import { unaApp } from './ejemplos';
-import { asentar, montarVista } from './montar';
+import { asentar, desmontarTodo, montarVista } from './montar';
 
 const portada = await Bun.file(new URL('../src/views/DescubrirView.vue', import.meta.url)).text();
 const css = await Bun.file(new URL('../src/assets/main.css', import.meta.url)).text();
@@ -48,6 +48,8 @@ function botonDe(vista: Awaited<ReturnType<typeof abrirLaPortada>>['vista'], tex
 beforeEach(() => {
 	olvidarTodo();
 });
+
+afterEach(desmontarTodo);
 
 describe('la barra', () => {
 	test('es la compartida y no la copia que vivía acá', async () => {

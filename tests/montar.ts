@@ -11,7 +11,7 @@
  * `happy-dom` no tiene barra de direcciones que recordar.
  */
 
-import { mount } from '@vue/test-utils';
+import { DOMWrapper, mount, type VueWrapper } from '@vue/test-utils';
 import { createPinia, setActivePinia } from 'pinia';
 import { type Component, h } from 'vue';
 import { createMemoryHistory, createRouter, type Router } from 'vue-router';
@@ -40,13 +40,65 @@ export async function unRouter(donde = '/descubrir'): Promise<Router> {
  *
  * Devuelve también el router, que es donde se mira a dónde llevó un clic.
  */
+/** Lo montado por acá, para poder desmontarlo pase lo que pase. */
+const montadas = new Set<VueWrapper>();
+
+/**
+ * Desmonta todo lo que se montó y deja el `body` limpio.
+ *
+ * Va en un `afterEach`, no al final de cada prueba: una aserción que falla se
+ * saltea lo que venga después. Y hace falta desde que los diálogos se
+ * teletransportan al `body`: un panel que queda puesto es el que encuentra la
+ * prueba siguiente al preguntar por `[role="dialog"]`, que entonces falla por
+ * algo que no tiene nada que ver con ella.
+ */
+export function desmontarTodo() {
+	for (const vista of montadas) vista.unmount();
+	montadas.clear();
+	for (const suelto of document.body.querySelectorAll('[role="dialog"]')) {
+		suelto.parentElement?.remove();
+	}
+}
+
+/**
+ * El diálogo abierto, que no cuelga del montaje.
+ *
+ * Se teletransporta al `body` para no quedar recortado por el `overflow` de la
+ * lista que lo abrió, así que buscarlo dentro de la vista no lo encuentra.
+ */
+export function elDialogo(): DOMWrapper<HTMLElement> {
+	const panel = document.body.querySelector<HTMLElement>('[role="dialog"]');
+	if (!panel) {
+		throw new Error('no hay ningún diálogo abierto');
+	}
+	return new DOMWrapper(panel);
+}
+
+/**
+ * Cómo se anuncia el diálogo abierto.
+ *
+ * Por `aria-labelledby` apuntando a su título y no por un `aria-label` puesto a
+ * mano: así el nombre que oye un lector de pantalla es **el mismo texto** que
+ * se ve, y no puede quedar desfasado del que se dibuja.
+ */
+export function nombreDelDialogo(): string | undefined {
+	const id = elDialogo().attributes('aria-labelledby');
+	return id ? (document.getElementById(id)?.textContent ?? undefined) : undefined;
+}
+
+/** Si hay alguno abierto, sin reventar cuando no. */
+export function hayDialogo(): boolean {
+	return document.body.querySelector('[role="dialog"]') !== null;
+}
+
 export async function montarVista(vista: Component, donde = '/descubrir') {
 	const router = await unRouter(donde);
 	const pinia = createPinia();
 	// Activo además de instalado: así una prueba puede pedir el store con
 	// `useOperaciones()` y mirar lo mismo que está mirando la vista.
 	setActivePinia(pinia);
-	const vino = mount(vista, { global: { plugins: [pinia, router] } });
+	const vino = mount(vista, { global: { plugins: [pinia, router] }, attachTo: document.body });
+	montadas.add(vino);
 	return { vista: vino, router };
 }
 

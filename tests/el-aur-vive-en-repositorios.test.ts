@@ -13,15 +13,13 @@
  * cuántas consultas salen al abrir la pantalla.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
-import { mount } from '@vue/test-utils';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createPinia, setActivePinia } from 'pinia';
-import BarraDeBusqueda from '@/components/tienda/BarraDeBusqueda.vue';
 import { useAjustes } from '@/stores/ajustes';
 import DescubrirView from '@/views/DescubrirView.vue';
 import RepositoriosView from '@/views/RepositoriosView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
-import { asentar, montarVista } from './montar';
+import { asentar, desmontarTodo, montarVista } from './montar';
 
 /** Un repositorio de los que vienen de `pacman.conf`. */
 function unRepositorio(cambios: Record<string, unknown> = {}) {
@@ -38,6 +36,8 @@ beforeEach(() => {
 	olvidarTodo();
 	setActivePinia(createPinia());
 });
+
+afterEach(desmontarTodo);
 
 describe('el ajuste, que sobrevive a cerrar la ventana', () => {
 	test('de fábrica está apagado', () => {
@@ -108,9 +108,17 @@ describe('dónde está el interruptor', () => {
 	test('ya no está en el buscador', async () => {
 		// Estuvo, y era el lugar equivocado: ahí era una opción de esa búsqueda
 		// y no una fuente de paquetes, y se olvidaba al cerrar la ventana.
-		const busqueda = mount(BarraDeBusqueda, { props: { valor: '' } });
+		//
+		// Se mira la pantalla entera y no el componente, que ahora es el
+		// `SearchField` de la librería: lo que importa no es que esa caja no
+		// tenga un interruptor —no lo tendría nunca— sino que **la pantalla de
+		// descubrir** no lo tenga en ningún lado.
+		responder('buscar', { resultados: [], total: 0 });
+		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
+		const { vista } = await montarVista(DescubrirView, '/descubrir');
+		await asentar();
 
-		expect(busqueda.find('[role="switch"]').exists()).toBe(false);
+		expect(vista.find('[role="switch"]').exists()).toBe(false);
 	});
 
 	test('está en Repositorios, con su advertencia', async () => {

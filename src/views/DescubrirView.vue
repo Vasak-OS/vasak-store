@@ -21,14 +21,12 @@
  * ventana reabierta perdía dónde estaba.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { SideBar, type SidebarCategory } from '@vasakgroup/vue-libvasak';
+import { EmptyState, SearchField, SideBar, type SidebarCategory } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import BarraDeBusqueda from '@/components/tienda/BarraDeBusqueda.vue';
 import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
 import TarjetaGrande from '@/components/tienda/TarjetaGrande.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useAjustes } from '@/stores/ajustes';
 import { useOperaciones } from '@/stores/operaciones';
@@ -57,6 +55,27 @@ const falla = ref('');
 
 const categoria = computed(() => String(ruta.query.cat ?? PORTADA));
 const texto = computed(() => String(ruta.query.q ?? ''));
+
+/**
+ * Cuánto se espera tras la última tecla antes de buscar.
+ *
+ * Cada búsqueda recorre quince mil paquetes y además consulta al AUR: una por
+ * tecla no sólo cuesta, además deja que el resultado de la penúltima llegue
+ * después que el de la última y la pise.
+ */
+const ESPERA = 250;
+
+/**
+ * Lo que se está escribiendo, que no es lo mismo que lo que se está buscando.
+ *
+ * Lo buscado vive en la query y por eso `texto` es de sólo lectura; el campo
+ * necesita algo donde escribir. Van atados en un sentido: el botón de atrás
+ * vuelve a la búsqueda anterior y el campo tiene que acompañar.
+ */
+const borrador = ref(texto.value);
+watch(texto, (ahora) => {
+	borrador.value = ahora;
+});
 const buscando = computed(() => texto.value.trim().length > 0);
 
 const ocupado = computed(() => operaciones.ocupado);
@@ -197,9 +216,11 @@ watch(
       <!-- La búsqueda va en la cabecera, antes que cualquier categoría: en una
            tienda, buscar es lo primero que alguien hace. -->
       <template #header>
-        <BarraDeBusqueda
-          :valor="texto"
-          @buscar="(q: string) => ir(q ? '' : categoria, q)" />
+        <SearchField
+          v-model="borrador"
+          :label="t('busqueda.marcador')"
+          :debounce="ESPERA"
+          @search="(q: string) => ir(q ? '' : categoria, q)" />
       </template>
     </SideBar>
 
@@ -207,13 +228,13 @@ watch(
       class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded-corner border border-ui-border bg-ui-surface/70 p-4">
       <IndicadorDeCarga v-if="cargando" />
 
-      <EstadoVacio
+      <EmptyState
         v-else-if="falla"
-        icono="dialog-error"
-        :titulo="t('comun.noSePudoLeer')"
-        :nota="falla">
+        icon="dialog-error"
+        :title="t('comun.noSePudoLeer')"
+        :note="falla">
         <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
-      </EstadoVacio>
+      </EmptyState>
 
       <!-- La portada: la fila destacada con capturas y la de lo recién
            actualizado. -->
@@ -260,11 +281,11 @@ watch(
         </section>
       </div>
 
-      <EstadoVacio
+      <EmptyState
         v-else-if="listado.length === 0"
-        icono="system-search"
-        :titulo="t('busqueda.sinResultados')"
-        :nota="t('busqueda.sinResultadosNota')" />
+        icon="system-search"
+        :title="t('busqueda.sinResultados')"
+        :note="t('busqueda.sinResultadosNota')" />
 
       <!-- Una categoría, o los resultados de una búsqueda. -->
       <div v-else class="flex flex-col gap-3">

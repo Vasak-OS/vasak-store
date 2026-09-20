@@ -6,6 +6,11 @@
  * botones salen de `WindowFrame`, que es el mismo de todas las ventanas del
  * escritorio. Estaba copiado acá, y ya había derivado de las copias vecinas.
  *
+ * Tampoco les pasa las etiquetas a los tres botones: los controles las
+ * resuelven solos contra `ventana.minimizar`, `ventana.maximizar` y
+ * `ventana.cerrar` del catálogo de esta aplicación, que son justo las tres que
+ * esto les estaba pasando.
+ *
  * De arriba viene además algo que esta copia no tenía: la barra puede ir
  * arriba, abajo, a la izquierda o a la derecha según `window.barPosition` en
  * `~/.config/vasak/vasak.conf`.
@@ -18,21 +23,16 @@
  * Por eso vive en el contenido de la barra, dentro de un `flex-1` con el
  * contenido centrado, que es exactamente lo que hacía la barra propia.
  */
-import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { WindowFrame } from '@vasakgroup/vue-libvasak';
 import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
 import SelectorDeSeccion from '@/components/barra/SelectorDeSeccion.vue';
 import { useTienda } from '@/stores/tienda';
 
-const { t } = useI18n();
 const tienda = useTienda();
 </script>
 
 <template>
-  <WindowFrame
-    :minimize-label="t('ventana.minimizar')"
-    :maximize-label="t('ventana.maximizar')"
-    :close-label="t('ventana.cerrar')">
+  <WindowFrame>
     <template #identidad>
       <LogoDeLaTienda />
     </template>

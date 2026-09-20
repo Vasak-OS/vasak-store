@@ -8,11 +8,11 @@
  * ya se sabe, que es instantáneo, y refrescar es una decisión.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { EmptyState } from '@vasakgroup/vue-libvasak';
 import { onMounted, ref, watch } from 'vue';
 import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
 import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
@@ -84,18 +84,18 @@ watch(
     <p v-if="operaciones.falla" class="text-sm text-status-error">{{ operaciones.falla }}</p>
 
     <IndicadorDeCarga v-if="cargando" />
-    <EstadoVacio
+    <EmptyState
       v-else-if="falla"
-      icono="dialog-error"
-      :titulo="t('comun.noSePudoLeer')"
-      :nota="falla">
+      icon="dialog-error"
+      :title="t('comun.noSePudoLeer')"
+      :note="falla">
       <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
-    </EstadoVacio>
-    <EstadoVacio
+    </EmptyState>
+    <EmptyState
       v-else-if="lista.length === 0"
-      icono="emblem-ok"
-      :titulo="t('actualizaciones.ninguna')"
-      :nota="t('actualizaciones.ningunaNota')" />
+      icon="emblem-ok"
+      :title="t('actualizaciones.ninguna')"
+      :note="t('actualizaciones.ningunaNota')" />
 
     <ul v-else class="flex flex-col gap-2">
       <li

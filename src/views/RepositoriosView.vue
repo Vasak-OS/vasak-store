@@ -7,12 +7,10 @@
  * no puede dejar la máquina sin actualizaciones de seguridad.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { EmptyState, SwitchToggle, TextInput } from '@vasakgroup/vue-libvasak';
 import { onMounted, ref } from 'vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import CampoDeTexto from '@/components/ui/CampoDeTexto.vue';
-import EstadoVacio from '@/components/ui/EstadoVacio.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
-import InterruptorDeOpcion from '@/components/ui/InterruptorDeOpcion.vue';
 import ModalBase from '@/components/ui/ModalBase.vue';
 import { useAjustes } from '@/stores/ajustes';
 import {
@@ -122,11 +120,11 @@ onMounted(async () => {
       <!-- Deshabilitado hasta saber cómo estaba: antes de leer los ajustes el
            conmutador se dibuja apagado, y tocarlo ahí guardaría «encendido»
            sobre un estado que todavía no se conocía. -->
-      <InterruptorDeOpcion
-        :valor="ajustes.aur"
-        :deshabilitado="!ajustes.cargado"
-        :etiqueta="t('origen.aur')"
-        @cambiar="(valor: boolean) => ajustes.cambiarAur(valor)" />
+      <SwitchToggle
+        :model-value="ajustes.aur"
+        :disabled="!ajustes.cargado"
+        :label="t('origen.aur')"
+        @update:model-value="(valor: boolean) => ajustes.cambiarAur(valor)" />
       <div class="flex min-w-0 flex-1 flex-col gap-0.5">
         <div class="flex items-center gap-2">
           <span class="font-medium text-sm">{{ t('origen.aur') }}</span>
@@ -140,23 +138,23 @@ onMounted(async () => {
     </section>
 
     <IndicadorDeCarga v-if="cargando" />
-    <EstadoVacio
+    <EmptyState
       v-else-if="noSeLeyo"
-      icono="dialog-error"
-      :titulo="t('comun.noSePudoLeer')"
-      :nota="noSeLeyo">
+      icon="dialog-error"
+      :title="t('comun.noSePudoLeer')"
+      :note="noSeLeyo">
       <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
-    </EstadoVacio>
+    </EmptyState>
     <ul v-else class="flex flex-col gap-2">
       <li
         v-for="repositorio in lista"
         :key="repositorio.nombre"
         class="flex items-start gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-3">
-        <InterruptorDeOpcion
-          :valor="repositorio.activo"
-          :deshabilitado="repositorio.protegido"
-          :etiqueta="repositorio.nombre"
-          @cambiar="(valor) => cambiar(repositorio, valor)" />
+        <SwitchToggle
+          :model-value="repositorio.activo"
+          :disabled="repositorio.protegido"
+          :label="repositorio.nombre"
+          @update:model-value="(valor) => cambiar(repositorio, valor)" />
         <span class="flex min-w-0 flex-1 flex-col gap-0.5">
           <span class="flex items-center gap-2">
             <span class="font-medium text-sm">{{ repositorio.nombre }}</span>
@@ -188,20 +186,20 @@ onMounted(async () => {
       <form ref="formulario" class="flex flex-col gap-3" @submit.prevent="agregar">
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.nombre') }}
-          <CampoDeTexto v-model="nuevo.nombre" required :etiqueta="t('repositorios.nombre')" />
+          <TextInput v-model="nuevo.nombre" required :ariaLabel="t('repositorios.nombre')" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.servidor') }}
-          <CampoDeTexto
+          <TextInput
             v-model="nuevo.servidor"
             required
             mono
             placeholder="https://…/$arch/$repo"
-            :etiqueta="t('repositorios.servidor')" />
+            :ariaLabel="t('repositorios.servidor')" />
         </label>
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.firma') }}
-          <CampoDeTexto v-model="nuevo.siglevel" required :etiqueta="t('repositorios.firma')" />
+          <TextInput v-model="nuevo.siglevel" required :ariaLabel="t('repositorios.firma')" />
           <span class="text-tx-muted text-xs leading-relaxed">{{ t('repositorios.firmaNota') }}</span>
         </label>
       </form>
