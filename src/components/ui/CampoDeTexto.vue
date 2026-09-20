@@ -25,7 +25,18 @@ const props = withDefaults(
 	{ type: 'text', invalid: false, mono: false, required: false }
 );
 
-const emit = defineEmits<{ 'update:modelValue': [valor: string] }>();
+const emit = defineEmits<{
+	'update:modelValue': [valor: string];
+	/**
+	 * La tecla que se apretó sobre el campo.
+	 *
+	 * Se declara en vez de dejarla caer sobre el `<input>` de adentro. Caía y
+	 * funcionaba —es cómo la búsqueda se dispara con Enter— pero no estaba
+	 * escrito en ningún lado. Declarado, Vue lo saca de los atributos: el
+	 * `@keydown` de abajo no es opcional, sin él Enter deja de buscar.
+	 */
+	keydown: [evento: KeyboardEvent];
+}>();
 
 const clases = computed(() => [
 	'w-full rounded-corner border bg-ui-surface/50 px-3 py-2 text-sm text-tx-main transition-colors',
@@ -45,5 +56,6 @@ const clases = computed(() => [
     :aria-label="etiqueta"
     :aria-invalid="invalid || undefined"
     :class="clases"
-    @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)">
+    @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)"
+    @keydown="emit('keydown', $event)">
 </template>
