@@ -12,11 +12,12 @@
  * se mira qué `src` queda.
  */
 
-import { beforeEach, describe, expect, test } from 'bun:test';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
-import { olvidarTodo, ponerEnElTema } from './dobles';
+import { emitir, olvidarTodo, ponerEnElTema } from './dobles';
 
 const lector = await Bun.file(new URL('../src-tauri/src/lector.rs', import.meta.url)).text();
 
@@ -35,6 +36,13 @@ async function asentar(vueltas = 6) {
 
 beforeEach(() => {
 	olvidarTodo();
+	// La memoria y la cuenta de oyentes de la librería viven en su módulo y se
+	// comparten entre archivos de prueba.
+	olvidarLosIconosDelTema();
+});
+
+afterEach(() => {
+	olvidarLosIconosDelTema();
 });
 
 describe('de dónde sale el ícono', () => {
@@ -78,6 +86,27 @@ describe('de dónde sale el ícono', () => {
 		const fuente = icono.get('img').attributes('src') ?? '';
 		expect(fuente).toStartWith('tienda://');
 		expect(fuente).not.toBe('/var/cache/tienda/krita.png');
+	});
+
+	test('y vuelve a buscar cuando la persona cambia de tema', async () => {
+		// Es lo único que este componente necesitaba del composable propio, y
+		// ahora lo da la librería con `usarLaVersionDelTema()`. Sin eso, el
+		// ícono se queda con el del tema anterior hasta reabrir la ventana — y
+		// no falla nada: se ve mal y nada más.
+		//
+		// La prueba mira el comportamiento y no el texto del `.vue`: comprobar
+		// que el archivo nombra el composable pasa igual si alguien saca la
+		// versión del `watch`, que es justo la forma de romperlo. Medido.
+		ponerEnElTema('krita', 'data:image/png;base64,TEMAVIEJO');
+		const icono = mount(IconoDeApp, { props: { icono: { tema: ['krita'] } } });
+		await asentar();
+		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,TEMAVIEJO');
+
+		ponerEnElTema('krita', 'data:image/png;base64,TEMANUEVO');
+		await emitir('vicons:theme-changed', undefined);
+		await asentar();
+
+		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,TEMANUEVO');
 	});
 
 	test('sin tema ni archivo no queda una imagen rota, queda el hueco', async () => {

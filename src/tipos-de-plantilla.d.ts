@@ -14,6 +14,14 @@
  *
  * Se declara el patrón, no cada nombre: una lista de nombres queda vieja en
  * cuanto alguien marca un nodo nuevo, y lo que se quiere permitir es la forma.
+ *
+ * ⚠️ Esto cubre los **elementos** y no los componentes, y no es por falta de
+ * ganas: `strictTemplates` pasa los atributos de un componente a camelCase antes
+ * de comprobarlos, así que `data-tauri-drag-region` llega al chequeo como
+ * `dataTauriDragRegion` y no coincide con este patrón. Declarar lo mismo en
+ * `ComponentCustomProps` **no sirve** —se probó—. Para ponerle un `data-*` a un
+ * componente hay que pasarlo por `v-bind`, como hace `LogoDeLaTienda`, que lo
+ * explica ahí.
  */
 declare module 'vue' {
 	interface HTMLAttributes {

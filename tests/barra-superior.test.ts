@@ -8,12 +8,14 @@
  * lo que queda por comprobar es lo que la tienda le pone adentro y **dónde**.
  */
 
-import { afterEach, describe, expect, test } from 'bun:test';
-import { AppBar, WindowControls, WindowFrame } from '@vasakgroup/vue-libvasak';
+import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { AppBar, olvidarLosIconosDelTema, WindowControls, WindowFrame } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
+import { nextTick } from 'vue';
 import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
 import SelectorDeSeccion from '@/components/barra/SelectorDeSeccion.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
+import { ponerEnElTema } from './dobles';
 import { desmontarTodo, montarVista } from './montar';
 
 afterEach(desmontarTodo);
@@ -48,7 +50,16 @@ function ranura(ventana: VueWrapper, nombre: string) {
 /** Y la ventana, que se monta en cada prueba de este bloque. */
 const abiertas: VueWrapper[] = [];
 
+beforeEach(() => {
+	// La memoria de iconos de la librería vive en su módulo y se comparte entre
+	// archivos de prueba: sin esto, el primero que pida un icono con el tema de
+	// mentira vacío deja guardado que no hay ninguno.
+	olvidarLosIconosDelTema();
+});
+
 afterEach(() => {
+	// Y al salir, para que lo que se puso acá no viaje al archivo siguiente.
+	olvidarLosIconosDelTema();
 	for (const suelto of sueltos.splice(0)) suelto.unmount();
 	for (const abierta of abiertas.splice(0)) abierta.unmount();
 });
@@ -138,6 +149,34 @@ describe('la ventana', () => {
 		const dentro = ranura(vista, 'identidad');
 
 		expect(dentro?.findComponent(LogoDeLaTienda).exists()).toBe(true);
+	});
+
+	test('y el logotipo deja arrastrar la ventana desde ahí', async () => {
+		// El logotipo es `ThemeIcon` de la librería, y el atributo se le pasa
+		// por `v-bind` porque `strictTemplates` camelCasea los atributos de un
+		// componente. Que **compile** y que **llegue al `img`** son dos cosas
+		// distintas: si no llegara, la barra perdería zona de agarre y ninguna
+		// otra prueba lo diría.
+		ponerEnElTema('system-software-install', 'data:image/png;base64,LOGO');
+		const logo = mount(LogoDeLaTienda);
+		sueltos.push(logo);
+		for (let i = 0; i < 6; i++) await nextTick();
+
+		const imagen = logo.find('img');
+		expect(imagen.exists()).toBe(true);
+		expect(imagen.attributes('src')).toBe('data:image/png;base64,LOGO');
+		expect(imagen.attributes('data-tauri-drag-region')).toBeDefined();
+	});
+
+	test('y es el de color, no el glifo monocromo', async () => {
+		// Sin ponerlo en el tema de mentira, el doble del glifo devuelve
+		// `simbolo:<nombre>`: si alguien cambiara la variante, el `src` lo
+		// delata. Pedir la que no está no falla, dibuja otra cosa.
+		const logo = mount(LogoDeLaTienda);
+		sueltos.push(logo);
+		for (let i = 0; i < 6; i++) await nextTick();
+
+		expect(logo.find('img').attributes('src')).not.toContain('simbolo:');
 	});
 
 	test('el selector va centrado en lo que sobra, y no en la ventana', async () => {

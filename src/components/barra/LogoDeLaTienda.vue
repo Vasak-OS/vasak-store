@@ -17,16 +17,33 @@
  * está parado.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { useReactiveIcons } from '@/composables/useReactiveIcon';
+import { ThemeIcon } from '@vasakgroup/vue-libvasak';
 
 const { t } = useI18n();
-const { logo } = useReactiveIcons({ logo: { name: 'system-software-install', type: 'icon' } });
+
+/**
+ * El atributo que deja arrastrar la ventana desde el logotipo.
+ *
+ * Va por `v-bind` y no escrito al lado de las demás propiedades porque
+ * `strictTemplates` pasa los atributos de un **componente** a camelCase antes de
+ * comprobarlos: `data-tauri-drag-region` llega al chequeo como
+ * `dataTauriDragRegion`, que no coincide con el patrón `data-${string}` que
+ * `tipos-de-plantilla.d.ts` declara. En un elemento normal no pasa.
+ *
+ * Al dibujar sí llega tal cual al `img` —`ThemeIcon` tiene una sola raíz y
+ * reenvía lo que no declara—, y hay una prueba que lo comprueba, porque sin ese
+ * atributo la ventana pierde zona de agarre sin que nada falle.
+ */
+const ARRASTRE = { 'data-tauri-drag-region': '' } as const;
 </script>
 <template>
-  <img
-    v-if="logo"
-    :src="logo"
-    class="h-7 w-7"
+  <!-- A color y no el glifo monocromo: es la identidad de la ventana, como en
+       el resto del escritorio. `icon` es lo que `ThemeIcon` trae por omisión,
+       pero va escrito porque es una decisión y no un descuido. -->
+  <ThemeIcon
+    name="system-software-install"
+    type="icon"
+    :size="28"
     :alt="t('app.nombre')"
-    data-tauri-drag-region>
+    v-bind="ARRASTRE" />
 </template>
