@@ -123,8 +123,19 @@ export async function getIconSource(nombre: string) {
 	return typeof puesto === 'function' ? await puesto() : puesto;
 }
 
-export async function getSymbolSource(_nombre: string) {
-	return '';
+/**
+ * El glifo monocromo, distinguible del de color.
+ *
+ * Devolvía siempre la cadena vacía, así que una prueba no podía notar si un
+ * componente pedía la variante equivocada — y son dos archivos distintos del
+ * tema: pedir la que no está **no falla**, dibuja el icono de imagen rota.
+ *
+ * Devuelve el nombre con el prefijo y no mira `temaDeIconos`, que guarda los de
+ * color: la tienda no pide símbolos en ningún lado, así que lo único que hace
+ * falta de este doble es que se note cuándo alguien empieza a pedirlos.
+ */
+export async function getSymbolSource(nombre: string) {
+	return `simbolo:${nombre}`;
 }
 
 /** Deja los dobles como recién puestos. Va en el `beforeEach` de cada prueba. */

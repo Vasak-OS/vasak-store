@@ -11,17 +11,24 @@
  * Los nombres son varios porque los temas no se ponen de acuerdo: unos usan el
  * `Icon=` del `.desktop`, otros el identificador de AppStream y unos cuantos el
  * nombre del paquete.
+ *
+ * Por eso mismo éste **no puede ser `ThemeIcon`**: ese componente resuelve un
+ * nombre, y acá hay una lista de candidatos y un archivo de respaldo. Lo que sí
+ * sale de la librería es la versión del tema, que es lo único que este
+ * componente necesitaba del composable propio: así se cuelga del oyente único
+ * que la librería ya tiene en vez de registrar uno por instancia, que con una
+ * lista de aplicaciones en pantalla son unos cuantos.
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { getIconSource } from '@vasakgroup/plugin-vicons';
+import { usarLaVersionDelTema } from '@vasakgroup/vue-libvasak';
 import { ref, toRef, watch } from 'vue';
-import { useThemeVersion } from '@/composables/useReactiveIcon';
 import type { Icono } from '@/tools/api';
 
 const props = withDefaults(defineProps<{ icono: Icono; tamano?: number }>(), { tamano: 40 });
 
 const fuente = ref('');
-const version = useThemeVersion();
+const version = usarLaVersionDelTema();
 const icono = toRef(props, 'icono');
 
 let pedido = 0;
