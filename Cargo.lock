@@ -4555,10 +4555,11 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-config-manager"
-version = "2.6.0"
+version = "2.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d7ded4a825c8e819683d6f40ff22add5589881c0c4e1f2dc80c6c5798b0f987b"
+checksum = "88a5561596a6abc058c9d230373e489dafa9b119cf170525e829ae1b53da7443"
 dependencies = [
+ "dirs",
  "home",
  "notify",
  "serde",
@@ -4610,11 +4611,12 @@ dependencies = [
 
 [[package]]
 name = "tauri-plugin-vicons"
-version = "2.2.0"
+version = "2.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3baee65d814984040415ad41c22bf67580e2562c3ef72da3b3e43f7a9eac78fd"
+checksum = "b6582d78c225cf8fd9fcff2aae9eada42566ca26ba885f28e824ed90356828c4"
 dependencies = [
  "base64 0.22.1",
+ "dirs",
  "glib",
  "gtk",
  "serde",
@@ -5311,7 +5313,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vasak-store"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "alpm",
  "alpm-utils",
@@ -5344,7 +5346,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-store-daemon"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "alpm",
  "alpm-utils",
@@ -5361,7 +5363,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-store-protocol"
-version = "0.7.0"
+version = "0.8.0"
 dependencies = [
  "serde",
  "serde_json",
