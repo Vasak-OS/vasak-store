@@ -140,30 +140,30 @@ describe('cuándo se apaga', () => {
 });
 
 describe('lo que no sube a la tarjeta', () => {
-	test('el clic se queda en el botón', async () => {
-		// La tarjeta entera es clickeable; sin cortar la propagación, instalar
-		// además navegaba a la ficha.
+	/**
+	 * Las tres maneras de apretar el botón, que no deben llegar a la tarjeta.
+	 *
+	 * La tarjeta entera es clickeable, así que sin cortar la propagation instalar
+	 * además navegaba a la ficha — y con el teclado era peor: un Enter disparaba
+	 * el clic **y** el `keydown`, o sea una acción, dos navegaciones. Los tres
+	 * tests eran el mismo montaje con otro disparador, así que van en una tabla.
+	 *
+	 * El `nombre` va en la tabla y no en un `for` porque sin él un fallo sale
+	 * como «esperaba 0 y llegó 1» y no dice cuál de los tres disparadores lo
+	 * hizo subir. Los nombres se dejan como estaban: «tampoco» y «tampoco» se
+	 * leen mal sueltos, pero son los que ya identifican estos casos en el
+	 * informe, y el `describe` es el que les da el contexto.
+	 */
+	const DISPARADORES = [
+		{ nombre: 'el clic se queda en el botón', evento: 'click' },
+		{ nombre: 'el Enter tampoco', evento: 'keydown.enter' },
+		{ nombre: 'la barra espaciadora tampoco', evento: 'keydown.space' },
+	];
+
+	test.each(DISPARADORES)('$nombre', async ({ evento }) => {
 		const anfitrion = mount(Anfitrion, { props: { app: unaApp() } });
 
-		await anfitrion.get('button').trigger('click');
-
-		expect(llegadasALaTarjeta).toBe(0);
-	});
-
-	test('el Enter tampoco', async () => {
-		// El botón con Enter ya emite un clic; sin cortar también el `keydown`,
-		// éste sube hasta la tarjeta y encima navega. Era un Enter, dos acciones.
-		const anfitrion = mount(Anfitrion, { props: { app: unaApp() } });
-
-		await anfitrion.get('button').trigger('keydown.enter');
-
-		expect(llegadasALaTarjeta).toBe(0);
-	});
-
-	test('la barra espaciadora tampoco', async () => {
-		const anfitrion = mount(Anfitrion, { props: { app: unaApp() } });
-
-		await anfitrion.get('button').trigger('keydown.space');
+		await anfitrion.get('button').trigger(evento);
 
 		expect(llegadasALaTarjeta).toBe(0);
 	});
