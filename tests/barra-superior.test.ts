@@ -128,7 +128,7 @@ describe('la ventana', () => {
 		expect(vista.findComponent(WindowFrame).exists()).toBe(true);
 		// `rounded-corner-window` es la esquina de la ventana y sale del marco.
 		// Con dos, el borde y el fondo se dibujan dos veces y se ven los dos.
-		expect(vista.findAll('.rounded-corner-window').length).toBe(1);
+		expect(vista.findAll('.rounded-corner-window')).toHaveLength(1);
 	});
 
 	test('con los tres botones y su nombre traducido', async () => {
