@@ -50,7 +50,9 @@ image = { version = "0.25", default-features = false, features = ["png"] }
 # versiones de OpenSSL de la distribución. `rusttls-ring` es como `raur` llama a
 # su combinación de rustls con el proveedor de criptografía `ring`.
 raur = { version = "8", default-features = false, features = ["async", "rusttls-ring"] }
-reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+# La misma mayor que `raur` —la 0.13— y con la misma bandera, así el binario
+# lleva un solo árbol de HTTP. Con la 0.12 acá convivían las dos.
+reqwest = { version = "0.13", default-features = false, features = ["rustls-no-provider"] }
 # El motor de criptografía de rustls, instalado a mano en el arranque. Con
 # `rustls-no-provider` —que es lo que pide la combinación de arriba— la
 # biblioteca no elige ninguno, y el primer cliente que se arma paniquea. Ver
