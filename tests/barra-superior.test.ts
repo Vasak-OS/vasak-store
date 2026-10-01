@@ -99,8 +99,8 @@ describe('el selector', () => {
 	});
 
 	test('las pantallas que cuelgan de una sección la dejan encendida', () => {
-		expect(selector).toContain("nombre === 'categoria'");
-		expect(selector).toContain("nombre === 'detalle'");
+		expect(selector).toContain("name === 'categoria'");
+		expect(selector).toContain("name === 'detalle'");
 	});
 });
 

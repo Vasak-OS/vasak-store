@@ -27,10 +27,10 @@ import {
 } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import ScreenshotCarousel from '@/components/store/ScreenshotCarousel.vue';
-import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import AppIcon from '@/components/store/AppIcon.vue';
 import OriginBadge from '@/components/store/OriginBadge.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
+import ScreenshotCarousel from '@/components/store/ScreenshotCarousel.vue';
 import AppDialog from '@/components/ui/AppDialog.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { type Detalle, detalle as pedirDetalle, recetaDelAur } from '@/tools/api';

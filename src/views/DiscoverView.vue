@@ -44,8 +44,8 @@ import {
 } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import FeaturedCard from '@/components/store/FeaturedCard.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import { useElementWidth } from '@/composables/useElementWidth';
 import { useAjustes } from '@/stores/ajustes';
 import { useOperaciones } from '@/stores/operaciones';

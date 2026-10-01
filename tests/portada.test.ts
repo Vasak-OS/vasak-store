@@ -54,7 +54,7 @@ describe('la tarjeta', () => {
 	});
 
 	test('el ícono es grande', () => {
-		expect(tarjeta).toContain(':tamano="56"');
+		expect(tarjeta).toContain(':size="56"');
 	});
 });
 

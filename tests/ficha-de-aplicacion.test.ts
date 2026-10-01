@@ -13,6 +13,7 @@
  */
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
+import { ActionButton, PropertyList } from '@vasakgroup/vue-libvasak';
 import { mount } from '@vue/test-utils';
 import ScreenshotCarousel from '@/components/store/ScreenshotCarousel.vue';
 import DetailView from '@/views/DetailView.vue';
@@ -20,10 +21,6 @@ import { olvidarTodo, pedidos, responder } from './dobles';
 import { sinArrastre, unaFicha, unasCapturas } from './ejemplos';
 import { asentar, desmontarTodo, elDialogo, hayDialogo, montarVista, nombreDelDialogo } from './montar';
 
-/** El botón se lee del fuente; el porqué está abajo, con su prueba. */
-const botonAccion = await Bun.file(
-	new URL('../src/components/ui/BotonAccion.vue', import.meta.url)
-).text();
 
 /** Abre la ficha de algo y espera a que cargue. */
 async function abrirLaFicha(ficha = unaFicha(), donde = '/app/repositorio/krita') {
@@ -113,12 +110,14 @@ describe('la ficha de datos', () => {
 
 	test('las filas llevan separador salvo la primera', async () => {
 		// Es lo que la hace una lista y no una rejilla de pares sueltos. Una
-		// línea arriba de la primera duplicaría el borde de la caja.
+		// línea arriba de la primera duplicaría el borde de la caja. El
+		// separador lo pone ahora `PropertyList` por filas: `divide-y` dibuja
+		// la línea entre una fila y la siguiente, nunca arriba de la primera.
 		const { vista } = await abrirLaFicha();
 
-		const filas = vista.findAll('dl > div');
-		expect(filas[0]?.classes()).not.toContain('border-t');
-		expect(filas[1]?.classes()).toContain('border-t');
+		const lista = vista.get('dl');
+		expect(lista.classes()).toContain('divide-y');
+		expect(lista.findAll(':scope > div').length).toBeGreaterThan(1);
 	});
 });
 
@@ -251,14 +250,14 @@ describe('las capturas', () => {
 	test('se ven todas a la vez y no de a una', async () => {
 		// Con una sola a la vista, que existan más se descubría apretando una
 		// flecha, que es la mitad de para qué están.
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(4) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(4) } });
 
 		expect(carrusel.findAll('figure')).toHaveLength(4);
 	});
 
 	test('las rutas del disco pasan por el protocolo de Tauri', async () => {
 		// La política de contenido no deja cargar rutas del disco crudas.
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(1) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(1) } });
 
 		const fuente = carrusel.get('figure img').attributes('src') ?? '';
 		expect(fuente).toStartWith('tienda://');
@@ -267,7 +266,7 @@ describe('las capturas', () => {
 	test('una captura se abre en grande', async () => {
 		// Es lo que uno espera de una imagen chica que muestra una pantalla
 		// llena de detalles.
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(3) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(3) } });
 		expect(hayDialogo()).toBe(false);
 
 		await carrusel.findAll('figure button')[1]?.trigger('click');
@@ -276,7 +275,7 @@ describe('las capturas', () => {
 	});
 
 	test('sin capturas no dibuja nada', async () => {
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: [] } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: [] } });
 
 		expect(carrusel.find('figure').exists()).toBe(false);
 	});
@@ -295,7 +294,7 @@ describe('las flechas del carrusel', () => {
 	}
 
 	test('al principio de la tira sólo se puede ir a la derecha', async () => {
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(6) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(6) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 0);
@@ -308,7 +307,7 @@ describe('las flechas del carrusel', () => {
 	});
 
 	test('en el medio se puede ir a los dos lados', async () => {
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(6) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(6) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 400);
@@ -320,7 +319,7 @@ describe('las flechas del carrusel', () => {
 	test('al final no se ofrece seguir a la derecha', async () => {
 		// El margen de cuatro píxeles es para que el redondeo del navegador no
 		// deje la flecha encendida para siempre sobre el final de la tira.
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(6) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(6) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 800);
@@ -333,7 +332,7 @@ describe('las flechas del carrusel', () => {
 	});
 
 	test('si la tira entra entera, no hay flechas', async () => {
-		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(2) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { screenshots: unasCapturas(2) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 0, 400, 400);
@@ -343,18 +342,31 @@ describe('las flechas del carrusel', () => {
 	});
 });
 
-describe('los botones de la ficha', () => {
-	// Esto se sigue leyendo del fuente a propósito: el radio es una decisión de
-	// familia visual, no un comportamiento. `rounded-corner-sm` es el de las
-	// insignias y los chips, y al lado de cualquier otra cosa de la ventana se
-	// notaba que el botón no era de la misma familia. Montado se vería igual,
-	// porque en `happy-dom` no hay CSS que aplicar.
-	test('usan el radio de las tarjetas y no el de los chips', () => {
-		// Sólo la plantilla: el comentario del componente nombra el radio viejo
-		// para explicar por qué no está, y buscarlo en el archivo entero daría
-		// un falso positivo.
-		const plantilla = botonAccion.slice(botonAccion.indexOf('<template>'));
-		expect(plantilla).toContain('rounded-corner ');
-		expect(plantilla).not.toContain('rounded-corner-sm');
+describe('las piezas de la ficha', () => {
+	// Los botones eran un `BotonAccion` propio con su radio; ahora son los de la
+	// librería, que llevan el radio derivado del que eligió la persona. Se mira
+	// montado: que estén todos, no que el fuente nombre el componente.
+	test('cada botón es el `ActionButton` de la librería', async () => {
+		const { vista } = await abrirLaFicha();
+
+		const propios = vista.findAll('header button');
+		expect(propios.length).toBeGreaterThan(0);
+		expect(vista.findAllComponents(ActionButton).length).toBeGreaterThanOrEqual(propios.length);
+	});
+
+	test('el sitio del proyecto lleva el icono del tema y no una flecha escrita', async () => {
+		const { vista } = await abrirLaFicha();
+
+		const enlace = vista.get('a[target="_blank"]');
+		expect(enlace.text()).not.toContain('↗');
+	});
+
+	test('los datos van en la lista de propiedades, por filas', async () => {
+		const { vista } = await abrirLaFicha();
+
+		const lista = vista.findComponent(PropertyList);
+		expect(lista.exists()).toBe(true);
+		expect(lista.props('layout')).toBe('rows');
+		expect(lista.findAll('dt').length).toBeGreaterThan(0);
 	});
 });

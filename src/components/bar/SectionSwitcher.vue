@@ -117,6 +117,14 @@ const shape = computed<'labels' | 'icons' | 'menu'>(() => {
 });
 
 const activeLabel = computed(() => t(`secciones.${active.value ?? 'descubrir'}`));
+
+/**
+ * Por debajo de esto ni el botón del menú entra con su nombre: a 240 de
+ * ventana se cortaba en «Descubri». Ahí queda el icono de la sección, con el
+ * nombre como globo y como nombre accesible.
+ */
+const COMPACT_BELOW = 140;
+const compact = computed(() => available.value > 0 && available.value < COMPACT_BELOW);
 </script>
 <template>
   <div ref="root" class="relative flex w-full min-w-0 justify-center" :data-shape="shape">
@@ -130,8 +138,9 @@ const activeLabel = computed(() => t(`secciones.${active.value ?? 'descubrir'}`)
     <DropdownMenu v-if="shape === 'menu'">
       <DropdownMenuTrigger as-child>
         <ActionButton
-          :label="activeLabel"
-          :title="t('secciones.navegacion')"
+          :label="compact ? '' : activeLabel"
+          :icon-alt="activeLabel"
+          :title="compact ? activeLabel : t('secciones.navegacion')"
           variant="secondary"
           :icon="ICONS[active ?? 'descubrir']"
           class="max-w-full" />

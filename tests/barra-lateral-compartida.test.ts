@@ -163,7 +163,8 @@ describe('el color de los paneles', () => {
 			...new Bun.Glob('**/*.vue').scanSync({ cwd: new URL('../src', import.meta.url).pathname }),
 		];
 		// Sin esto, un glob que no encuentra nada deja la prueba en verde.
-		expect(vistos.length).toBeGreaterThan(20);
+		// Diecinueve desde que `BotonAccion` e `IndicadorDeCarga` pasaron a la librería.
+		expect(vistos.length).toBeGreaterThan(15);
 
 		for (const archivo of vistos) {
 			const fuente = await Bun.file(

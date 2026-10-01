@@ -25,7 +25,9 @@ const { t } = useI18n();
 const tone = computed<BadgeTone>(() => (props.origin === 'aur' ? 'warning' : 'neutral'));
 const color = computed(() => (props.origin === 'appimage' ? 'var(--color-secondary)' : undefined));
 const label = computed(() =>
-	props.origin === 'repositorio' && props.repository ? props.repository : t(`origen.${props.origin}`)
+	props.origin === 'repositorio' && props.repository
+		? props.repository
+		: t(`origen.${props.origin}`)
 );
 </script>
 <template>

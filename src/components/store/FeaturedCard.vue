@@ -19,8 +19,8 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { ListCard } from '@vasakgroup/vue-libvasak';
 import { computed } from 'vue';
-import InstallButton from '@/components/store/InstallButton.vue';
 import AppIcon from '@/components/store/AppIcon.vue';
+import InstallButton from '@/components/store/InstallButton.vue';
 import OriginBadge from '@/components/store/OriginBadge.vue';
 import type { Tarjeta } from '@/tools/api';
 

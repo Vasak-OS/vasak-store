@@ -59,9 +59,9 @@ describe('la insignia', () => {
 	test('la del AUR se distingue por color y no sólo por texto', () => {
 		// Una insignia que se distinga sólo por un tono de gris no comunica «la
 		// distribución trata esto como inseguro».
-		const aur = mount(OriginBadge, { props: { origen: 'aur', repositorio: 'aur' } });
+		const aur = mount(OriginBadge, { props: { origin: 'aur', repository: 'aur' } });
 		const repositorio = mount(OriginBadge, {
-			props: { origen: 'repositorio', repositorio: 'extra' },
+			props: { origin: 'repositorio', repository: 'extra' },
 		});
 
 		expect(aur.get('span').classes().join(' ')).toContain('status-warning');
@@ -69,7 +69,7 @@ describe('la insignia', () => {
 	});
 
 	test('y explica qué significa al pasar por encima', () => {
-		const aur = mount(OriginBadge, { props: { origen: 'aur', repositorio: 'aur' } });
+		const aur = mount(OriginBadge, { props: { origin: 'aur', repository: 'aur' } });
 
 		expect(aur.get('span').attributes('title')).toBe('origen.aurNota');
 		expect(aur.text()).toBe('origen.aur');
@@ -79,7 +79,7 @@ describe('la insignia', () => {
 		// «Repositorio» a secas no dice nada: `extra` y el de VasakOS no son lo
 		// mismo para quien decide si instalar algo.
 		const insignia = mount(OriginBadge, {
-			props: { origen: 'repositorio', repositorio: 'vasakos' },
+			props: { origin: 'repositorio', repository: 'vasakos' },
 		});
 
 		expect(insignia.text()).toBe('vasakos');
@@ -98,7 +98,7 @@ describe('desde una lista de resultados', () => {
 		const { vista, router } = await montarVista(DiscoverView, '/descubrir?q=yay');
 		await asentar();
 
-		const boton = vista.get('article button');
+		const boton = vista.get('[role="button"] button');
 		expect(boton.text()).toBe('tarjeta.receta');
 		await boton.trigger('click');
 		await asentar();
@@ -118,7 +118,7 @@ describe('desde una lista de resultados', () => {
 		const { vista } = await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
-		await vista.get('article button').trigger('click');
+		await vista.get('[role="button"] button').trigger('click');
 		await asentar();
 
 		expect(pedidos('previsualizar')[0]?.argumentos.paquetes).toEqual(['krita']);
@@ -277,7 +277,8 @@ describe('lo que no se puede montar', () => {
 		// Primero que haya mirado algo: esta prueba afirma una ausencia, y el día
 		// que el patrón deje de encontrar archivos —una carpeta que se mueve—
 		// pasaría sola justo cuando dejó de comprobar nada.
-		expect(mirados.length).toBeGreaterThan(20);
+		// Diecinueve desde que `BotonAccion` e `IndicadorDeCarga` pasaron a la librería.
+		expect(mirados.length).toBeGreaterThan(15);
 		expect(conVHtml).toEqual([]);
 	});
 

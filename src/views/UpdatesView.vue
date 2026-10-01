@@ -14,10 +14,16 @@
  * línea siguiente antes de aplastarlos.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { ActionButton, EmptyState, ListCard, LoadingState, PageHeader } from '@vasakgroup/vue-libvasak';
+import {
+	ActionButton,
+	EmptyState,
+	ListCard,
+	LoadingState,
+	PageHeader,
+} from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
-import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import AppIcon from '@/components/store/AppIcon.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
 import { actualizaciones as pedirActualizaciones, type Tarjeta } from '@/tools/api';
@@ -27,7 +33,10 @@ const { t } = useI18n();
 
 const countText = computed(() =>
 	list.value.length > 0
-		? interpolar(t(`actualizaciones.${claveSegunCantidad('disponibles', list.value.length)}`), list.value.length)
+		? interpolar(
+				t(`actualizaciones.${claveSegunCantidad('disponibles', list.value.length)}`),
+				list.value.length
+			)
 		: undefined
 );
 const operaciones = useOperaciones();

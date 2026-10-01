@@ -26,9 +26,9 @@ import {
 	SwitchToggle,
 } from '@vasakgroup/vue-libvasak';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
-import PreviewDialog from '@/components/store/PreviewDialog.vue';
-import AppIcon from '@/components/store/AppIcon.vue';
 import AppGrid from '@/components/store/AppGrid.vue';
+import AppIcon from '@/components/store/AppIcon.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import {
 	type AppImage,

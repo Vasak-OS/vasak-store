@@ -24,8 +24,8 @@
  * contenido centrado, que es exactamente lo que hacía la barra propia.
  */
 import { WindowFrame } from '@vasakgroup/vue-libvasak';
-import StoreLogo from '@/components/bar/StoreLogo.vue';
 import SectionSwitcher from '@/components/bar/SectionSwitcher.vue';
+import StoreLogo from '@/components/bar/StoreLogo.vue';
 import { useTienda } from '@/stores/tienda';
 
 const tienda = useTienda();
