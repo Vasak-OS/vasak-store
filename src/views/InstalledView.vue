@@ -55,6 +55,14 @@ const withOrphans = ref(true);
 const dropping = ref(false);
 /** El error de la lectura, que deja la pantalla sin nada que mostrar. */
 const failure = ref('');
+/**
+ * El error de una acción sobre un AppImage (abrir, integrar, quitar).
+ *
+ * Aparte del de la lectura: `load()` limpia `failure` al empezar, y como cada
+ * acción recarga la lista después, el aviso de lo que falló se borraba antes
+ * de verse.
+ */
+const actionError = ref('');
 let stopDropping: UnlistenFn | null = null;
 
 async function load() {
@@ -78,19 +86,34 @@ async function load() {
 
 /** Corre una acción sobre un AppImage y deja el error a la vista si falla. */
 async function withNotice(action: () => Promise<unknown>) {
-	failure.value = '';
+	actionError.value = '';
+	let error = '';
 	try {
 		await action();
-	} catch (error) {
-		failure.value = String(error);
+	} catch (caught) {
+		error = String(caught);
 	}
 	await load();
+	actionError.value = error;
 }
 
+/**
+ * Integra todo lo que se soltó de una vez: cada archivo por su cuenta, los
+ * errores juntos y la lista recargada una sola vez al final.
+ */
 async function integrate(paths: string[]) {
+	if (paths.length === 0) return;
+	actionError.value = '';
+	const errors: string[] = [];
 	for (const path of paths) {
-		await withNotice(() => integrarAppimage(path));
+		try {
+			await integrarAppimage(path);
+		} catch (error) {
+			errors.push(String(error));
+		}
 	}
+	await load();
+	actionError.value = errors.join('\n');
 }
 
 onMounted(async () => {
@@ -144,10 +167,11 @@ watch(
       v-model="filter"
       :label="t('instaladas.filtro')"
       :debounce="ESPERA"
-      @search="load" />
+      @search="load"
+      @clear="load" />
 
-    <p v-if="operaciones.falla || failure" class="text-sm text-status-error">
-      {{ operaciones.falla || failure }}
+    <p v-if="operaciones.falla || actionError || failure" class="whitespace-pre-line text-sm text-status-error">
+      {{ operaciones.falla || actionError || failure }}
     </p>
 
     <section

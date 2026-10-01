@@ -263,7 +263,8 @@ function search(q: string) {
           v-model="draft"
           :label="t('busqueda.marcador')"
           :debounce="ESPERA"
-          @search="search" />
+          @search="search"
+          @clear="search('')" />
       </template>
     </SideBar>
 
@@ -304,7 +305,8 @@ function search(q: string) {
             v-model="draft"
             :label="t('busqueda.marcador')"
             :debounce="ESPERA"
-            @search="search" />
+            @search="search"
+          @clear="search('')" />
         </div>
         <ActionButton
           variant="secondary"

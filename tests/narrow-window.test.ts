@@ -15,7 +15,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { DropdownMenuTrigger, ListRow, SegmentedControl, SideBar } from '@vasakgroup/vue-libvasak';
-import { mount } from '@vue/test-utils';
+import { mount, type VueWrapper } from '@vue/test-utils';
 import SectionSwitcher from '@/components/bar/SectionSwitcher.vue';
 import DiscoverView from '@/views/DiscoverView.vue';
 import { olvidarTodo, responder } from './dobles';
@@ -46,7 +46,13 @@ beforeEach(() => {
 	responder('ajustes', { aur: false });
 });
 
+/** Lo montado a mano, que `desmontarTodo` no conoce. */
+const sueltos: VueWrapper[] = [];
+
 afterEach(() => {
+	// Primero desmontar: los observadores de ancho siguen vivos mientras el
+	// componente esté puesto, y leerían el ancho original a mitad de camino.
+	for (const suelto of sueltos.splice(0)) suelto.unmount();
 	if (original) Object.defineProperty(HTMLElement.prototype, 'clientWidth', original);
 	desmontarTodo();
 });
@@ -128,6 +134,7 @@ describe('el selector de secciones', () => {
 			global: { plugins: [router] },
 			attachTo: document.body,
 		});
+		sueltos.push(vista);
 		await asentar();
 		return vista;
 	}
@@ -182,6 +189,7 @@ describe('el selector, en lo más angosto', () => {
 		});
 		const router = await unRouter('/descubrir');
 		const vista = mount(SectionSwitcher, { global: { plugins: [router] }, attachTo: document.body });
+		sueltos.push(vista);
 		await asentar();
 
 		const boton = vista.findComponent(DropdownMenuTrigger).get('button');
