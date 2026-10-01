@@ -2,8 +2,11 @@
 /**
  * El botón de instalar de una tarjeta.
  *
- * En píldora y con el color de marca en claro, como el de una tienda: es la
- * acción que la tarjeta ofrece y tiene que verse antes que el resto del texto.
+ * Es el `ActionButton` de la librería, chico. La píldora propia que tenía
+ * (`rounded-full`, con el primario en claro) pasó a la forma del resto de los
+ * botones del taller, `rounded-corner-m`; el estado se dice con la variante:
+ * lo que la tarjeta ofrece va en `primary` y se ve antes que el resto del
+ * texto, lo que sólo informa va apagado, y lo que espera su turno, `loading`.
  *
  * Seis estados, y los seis dicen algo distinto:
  *
@@ -27,20 +30,24 @@
  * repositorios— y en los dos casos estaría ofreciendo algo que no hace.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { computed } from 'vue';
+import { ActionButton } from '@vasakgroup/vue-libvasak';
+import { computed, withKeys, withModifiers } from 'vue';
 import type { Tarjeta } from '@/tools/api';
 
-const props = withDefaults(defineProps<{ app: Tarjeta; ocupado: boolean; enCola?: boolean }>(), {
-	enCola: false,
+const props = withDefaults(defineProps<{ app: Tarjeta; busy: boolean; queued?: boolean }>(), {
+	queued: false,
 });
-const emit = defineEmits<{ instalar: []; actualizar: []; receta: [] }>();
+const emit = defineEmits<{ install: []; update: []; recipe: [] }>();
 const { t } = useI18n();
 
-const estado = computed(() => {
+type State = 'receta' | 'enCola' | 'actualizar' | 'instalada' | 'instalar';
+
+/** El estado, con el nombre de su texto en el catálogo (`tarjeta.*`). */
+const state = computed<State>(() => {
 	if (props.app.origen === 'aur') {
 		return 'receta';
 	}
-	if (props.enCola) {
+	if (props.queued) {
 		return 'enCola';
 	}
 	if (props.app.actualizable) {
@@ -49,37 +56,54 @@ const estado = computed(() => {
 	return props.app.instalada ? 'instalada' : 'instalar';
 });
 
-function apretar() {
-	if (estado.value === 'receta') {
-		emit('receta');
+const VARIANT: Record<State, 'primary' | 'secondary' | 'ghost'> = {
+	instalar: 'primary',
+	actualizar: 'primary',
+	receta: 'secondary',
+	enCola: 'secondary',
+	instalada: 'ghost',
+};
+
+/**
+ * Enter y espacio no suben a la tarjeta, que se abre con las mismas teclas; el
+ * clic tampoco (`stop-propagation`): sin cortarlo, instalar abría además la
+ * ficha.
+ *
+ * Va por `v-bind` y no como `@keydown.enter.stop`: `ActionButton` no declara
+ * `keydown` —le llega como atributo y lo pone en su `<button>`— y
+ * `strictTemplates` mide contra las propiedades declaradas.
+ */
+const KEYS = {
+	onKeydown: withKeys(
+		withModifiers(() => {}, ['stop']),
+		['enter', 'space']
+	),
+};
+
+function press() {
+	if (state.value === 'receta') {
+		emit('recipe');
 		return;
 	}
-	if (estado.value === 'actualizar') {
-		emit('actualizar');
+	if (state.value === 'actualizar') {
+		emit('update');
 		return;
 	}
-	if (estado.value === 'instalar') {
-		emit('instalar');
+	if (state.value === 'instalar') {
+		emit('install');
 	}
 }
 </script>
 
 <template>
-  <button
-    type="button"
-    :disabled="estado === 'instalada' || estado === 'enCola' || (ocupado && estado !== 'receta')"
-    class="shrink-0 rounded-full px-4 py-1.5 font-semibold text-xs transition-all disabled:cursor-not-allowed disabled:opacity-60"
-    :class="{
-      'bg-primary/15 text-primary hover:bg-primary hover:text-tx-on-primary': estado === 'instalar',
-      'bg-status-warning/20 text-status-warning hover:bg-status-warning hover:text-tx-on-primary':
-        estado === 'actualizar',
-      'bg-ui-surface text-tx-muted': estado === 'instalada' || estado === 'enCola',
-      'bg-status-warning/15 text-status-warning hover:bg-status-warning hover:text-tx-on-primary':
-        estado === 'receta',
-    }"
-    @click.stop="apretar"
-    @keydown.enter.stop
-    @keydown.space.stop>
-    {{ t(`tarjeta.${estado}`) }}
-  </button>
+  <ActionButton
+    :label="t(`tarjeta.${state}`)"
+    :variant="VARIANT[state]"
+    size="sm"
+    class="shrink-0"
+    :loading="state === 'enCola'"
+    :disabled="state === 'instalada' || (busy && state !== 'receta')"
+    stop-propagation
+    v-bind="KEYS"
+    @click="press" />
 </template>

@@ -28,7 +28,7 @@ const lector = await Bun.file(new URL('../src-tauri/src/lector.rs', import.meta.
  * alcanza un `nextTick`: hay que dejar correr la cadena entera antes de mirar
  * el DOM.
  */
-async function asentar(vueltas = 6) {
+async function asentar(vueltas = 30) {
 	for (let i = 0; i < vueltas; i++) {
 		await nextTick();
 	}
@@ -52,7 +52,7 @@ describe('de dónde sale el ícono', () => {
 		// igual con cualquier tema puesto.
 		ponerEnElTema('krita', 'data:image/png;base64,DELTEMA');
 		const icono = mount(AppIcon, {
-			props: { icono: { tema: ['krita'], archivo: '/var/cache/tienda/krita.png' } },
+			props: { icon: { tema: ['krita'], archivo: '/var/cache/tienda/krita.png' } },
 		});
 
 		await asentar();
@@ -66,7 +66,7 @@ describe('de dónde sale el ícono', () => {
 		// nombre no muestra ícono nunca.
 		ponerEnElTema('org.kde.krita', 'data:image/png;base64,ELSEGUNDO');
 		const icono = mount(AppIcon, {
-			props: { icono: { tema: ['krita', 'org.kde.krita', 'package-x-generic'] } },
+			props: { icon: { tema: ['krita', 'org.kde.krita', 'package-x-generic'] } },
 		});
 
 		await asentar();
@@ -78,7 +78,7 @@ describe('de dónde sale el ícono', () => {
 		// La política de contenido no deja cargar rutas del disco: cargada cruda,
 		// la imagen queda rota.
 		const icono = mount(AppIcon, {
-			props: { icono: { tema: ['krita'], archivo: '/var/cache/tienda/krita.png' } },
+			props: { icon: { tema: ['krita'], archivo: '/var/cache/tienda/krita.png' } },
 		});
 
 		await asentar();
@@ -90,7 +90,7 @@ describe('de dónde sale el ícono', () => {
 
 	test('y vuelve a buscar cuando la persona cambia de tema', async () => {
 		// Es lo único que este componente necesitaba del composable propio, y
-		// ahora lo da la librería con `usarLaVersionDelTema()`. Sin eso, el
+		// ahora lo resuelve `ThemeIcon` de la librería con su oyente único. Sin eso, el
 		// ícono se queda con el del tema anterior hasta reabrir la ventana — y
 		// no falla nada: se ve mal y nada más.
 		//
@@ -98,12 +98,15 @@ describe('de dónde sale el ícono', () => {
 		// que el archivo nombra el composable pasa igual si alguien saca la
 		// versión del `watch`, que es justo la forma de romperlo. Medido.
 		ponerEnElTema('krita', 'data:image/png;base64,TEMAVIEJO');
-		const icono = mount(AppIcon, { props: { icono: { tema: ['krita'] } } });
+		const icono = mount(AppIcon, { props: { icon: { tema: ['krita'] } } });
 		await asentar();
 		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,TEMAVIEJO');
 
 		ponerEnElTema('krita', 'data:image/png;base64,TEMANUEVO');
 		await emitir('vicons:theme-changed', undefined);
+		// La librería junta los avisos de cambio de tema (100 ms) antes de
+		// volver a pedir los iconos: varios avisos seguidos son una sola tanda.
+		await new Promise((listo) => setTimeout(listo, 150));
 		await asentar();
 
 		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,TEMANUEVO');
@@ -113,7 +116,7 @@ describe('de dónde sale el ícono', () => {
 		// Un `img` con `src` vacío es el ícono de imagen fallada. Y el hueco tiene
 		// que ocupar lo mismo: sin él la tarjeta cambia de ancho cuando la imagen
 		// carga y la lista entera salta.
-		const icono = mount(AppIcon, { props: { icono: { tema: [] }, tamano: 56 } });
+		const icono = mount(AppIcon, { props: { icon: { tema: [] }, size: 56 } });
 
 		await asentar();
 
@@ -129,11 +132,11 @@ describe('cuándo se vuelve a resolver', () => {
 		// que ocupaba ese lugar antes.
 		ponerEnElTema('krita', 'data:image/png;base64,KRITA');
 		ponerEnElTema('gimp', 'data:image/png;base64,GIMP');
-		const icono = mount(AppIcon, { props: { icono: { tema: ['krita'] } } });
+		const icono = mount(AppIcon, { props: { icon: { tema: ['krita'] } } });
 		await asentar();
 		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,KRITA');
 
-		await icono.setProps({ icono: { tema: ['gimp'] } });
+		await icono.setProps({ icon: { tema: ['gimp'] } });
 		await asentar();
 
 		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,GIMP');
@@ -154,9 +157,9 @@ describe('cuándo se vuelve a resolver', () => {
 		);
 		ponerEnElTema('gimp', 'data:image/png;base64,GIMP');
 
-		const icono = mount(AppIcon, { props: { icono: { tema: ['krita'] } } });
+		const icono = mount(AppIcon, { props: { icon: { tema: ['krita'] } } });
 		await nextTick();
-		await icono.setProps({ icono: { tema: ['gimp'] } });
+		await icono.setProps({ icon: { tema: ['gimp'] } });
 		await asentar();
 
 		// La nueva ya está puesta; ahora contesta la vieja.

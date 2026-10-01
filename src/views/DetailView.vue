@@ -6,17 +6,31 @@
  * instalar no instala —abre la receta—. La política de la distribución trata al
  * AUR como inseguro, y la manera de que eso signifique algo es que compilar
  * requiera haber tenido el PKGBUILD delante.
+ *
+ * Las piezas son de la librería: los datos van en `PropertyList` por filas, la
+ * receta en `CodeBlock`, el sitio del proyecto es un `ActionButton` con `href`
+ * y el icono `external-link` del tema en lugar de la flecha escrita, y
+ * «Instalado» es un `Badge`.
+ *
+ * La cabecera sigue al ancho que tiene (consulta de contenedor): en una
+ * ventana angosta el icono, el texto y los botones se apilan en una columna en
+ * vez de dejar el resumen en una tira de dos palabras por renglón.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { EmptyState } from '@vasakgroup/vue-libvasak';
+import {
+	ActionButton,
+	Badge,
+	CodeBlock,
+	EmptyState,
+	LoadingState,
+	PropertyList,
+} from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import ScreenshotCarousel from '@/components/store/ScreenshotCarousel.vue';
 import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import AppIcon from '@/components/store/AppIcon.vue';
 import OriginBadge from '@/components/store/OriginBadge.vue';
-import BotonAccion from '@/components/ui/BotonAccion.vue';
-import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import AppDialog from '@/components/ui/AppDialog.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { type Detalle, detalle as pedirDetalle, recetaDelAur } from '@/tools/api';
@@ -28,12 +42,12 @@ const router = useRouter();
 const operaciones = useOperaciones();
 
 const app = ref<Detalle | null>(null);
-const cargando = ref(true);
-const falla = ref('');
-const receta = ref('');
-const viendoReceta = ref(false);
+const loading = ref(true);
+const failure = ref('');
+const recipe = ref('');
+const showingRecipe = ref(false);
 
-const delAur = computed(() => ruta.params.origen === 'aur');
+const fromAur = computed(() => ruta.params.origen === 'aur');
 
 /**
  * El sitio del proyecto, si es una dirección que se puede abrir.
@@ -44,43 +58,43 @@ const delAur = computed(() => ruta.params.origen === 'aur');
  * `http` y `https`.
  */
 const web = computed(() => {
-	const crudo = app.value?.web;
-	if (!crudo) {
+	const raw = app.value?.web;
+	if (!raw) {
 		return null;
 	}
 	try {
-		const url = new URL(crudo);
+		const url = new URL(raw);
 		return url.protocol === 'https:' || url.protocol === 'http:' ? url.href : null;
 	} catch {
 		return null;
 	}
 });
 
-async function cargar() {
-	cargando.value = true;
-	falla.value = '';
+async function load() {
+	loading.value = true;
+	failure.value = '';
 	app.value = null;
 	try {
-		app.value = await pedirDetalle(String(ruta.params.nombre), delAur.value);
+		app.value = await pedirDetalle(String(ruta.params.nombre), fromAur.value);
 	} catch (error) {
-		falla.value = String(error);
+		failure.value = String(error);
 	} finally {
-		cargando.value = false;
+		loading.value = false;
 	}
 }
 
-async function verReceta() {
-	falla.value = '';
+async function showRecipe() {
+	failure.value = '';
 	try {
-		receta.value = await recetaDelAur(String(ruta.params.nombre));
-		viendoReceta.value = true;
+		recipe.value = await recetaDelAur(String(ruta.params.nombre));
+		showingRecipe.value = true;
 	} catch (error) {
-		falla.value = String(error);
+		failure.value = String(error);
 	}
 }
 
-async function compilar() {
-	viendoReceta.value = false;
+async function build() {
+	showingRecipe.value = false;
 	await operaciones.compilarDelAur(String(ruta.params.nombre), app.value?.titulo ?? '');
 }
 
@@ -91,41 +105,41 @@ async function compilar() {
  * iguales con un `v-if` cada uno, y agregar un dato significaba copiar el
  * doceavo. Acá la lista es una lista y la plantilla la recorre.
  */
-const datos = computed(() => {
-	const ficha = app.value;
-	if (!ficha) {
+const facts = computed(() => {
+	const sheet = app.value;
+	if (!sheet) {
 		return [];
 	}
-	const filas: { etiqueta: string; valor: string }[] = [
-		{ etiqueta: t('detalle.version'), valor: ficha.version },
-		{ etiqueta: t('detalle.tamano'), valor: ficha.tamano > 0 ? bytes(ficha.tamano) : '' },
-		{ etiqueta: t('detalle.descarga'), valor: ficha.descarga > 0 ? bytes(ficha.descarga) : '' },
-		{ etiqueta: t('detalle.licencia'), valor: ficha.licencia ?? '' },
-		{ etiqueta: t('detalle.autor'), valor: ficha.autor ?? '' },
-		{ etiqueta: t('detalle.empaquetador'), valor: ficha.empaquetador ?? '' },
-		{ etiqueta: t('detalle.arquitectura'), valor: ficha.arquitectura ?? '' },
-		{ etiqueta: t('detalle.construido'), valor: fecha(ficha.construido) },
-		{ etiqueta: t('detalle.instaladoEl'), valor: fecha(ficha.instalado_el) },
+	const rows: { label: string; value: string }[] = [
+		{ label: t('detalle.version'), value: sheet.version },
+		{ label: t('detalle.tamano'), value: sheet.tamano > 0 ? bytes(sheet.tamano) : '' },
+		{ label: t('detalle.descarga'), value: sheet.descarga > 0 ? bytes(sheet.descarga) : '' },
+		{ label: t('detalle.licencia'), value: sheet.licencia ?? '' },
+		{ label: t('detalle.autor'), value: sheet.autor ?? '' },
+		{ label: t('detalle.empaquetador'), value: sheet.empaquetador ?? '' },
+		{ label: t('detalle.arquitectura'), value: sheet.arquitectura ?? '' },
+		{ label: t('detalle.construido'), value: fecha(sheet.construido) },
+		{ label: t('detalle.instaladoEl'), value: fecha(sheet.instalado_el) },
 		{
-			etiqueta: t('detalle.votos'),
-			valor:
-				ficha.votos === undefined ? '' : `${ficha.votos} · ${(ficha.popularidad ?? 0).toFixed(2)}`,
+			label: t('detalle.votos'),
+			value:
+				sheet.votos === undefined ? '' : `${sheet.votos} · ${(sheet.popularidad ?? 0).toFixed(2)}`,
 		},
-		{ etiqueta: t('detalle.actualizadoEl'), valor: fecha(ficha.actualizado) },
+		{ label: t('detalle.actualizadoEl'), value: fecha(sheet.actualizado) },
 	];
 	// Lo que no hay no ocupa una fila vacía: una tabla con la mitad de los
 	// valores en blanco se lee como datos que faltan y no como datos que ese
 	// paquete no tiene.
-	return filas.filter((fila) => fila.valor !== '');
+	return rows.filter((row) => row.value !== '');
 });
 
-onMounted(cargar);
-watch(() => [ruta.params.nombre, ruta.params.origen], cargar);
+onMounted(load);
+watch(() => [ruta.params.nombre, ruta.params.origen], load);
 watch(
 	() => operaciones.enCurso,
-	(ahora, antes) => {
-		if (antes && !ahora) {
-			cargar();
+	(now, before) => {
+		if (before && !now) {
+			load();
 		}
 	}
 );
@@ -133,103 +147,91 @@ watch(
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col overflow-auto">
-    <IndicadorDeCarga v-if="cargando" />
+    <LoadingState v-if="loading" size="sm" :label="t('comun.cargando')" />
     <EmptyState
       v-else-if="!app"
       icon="dialog-error"
       :title="t('busqueda.sinResultados')"
-      :note="falla" />
+      :note="failure" />
 
     <template v-else>
       <!-- La cabecera, sobre un fondo propio: es la tarjeta de presentación de
            la aplicación y conviene que se separe de la ficha de datos. -->
-      <header class="border-ui-border border-b bg-ui-surface/30 px-6 pt-3 pb-6">
-        <BotonAccion class="mb-4" @click="router.back()">{{ t('comun.volver') }}</BotonAccion>
+      <header class="@container border-ui-border border-b bg-ui-surface/30 px-6 pt-3 pb-6">
+        <ActionButton
+          variant="secondary"
+          class="mb-4"
+          :label="t('comun.volver')"
+          @click="router.back()" />
 
-        <div class="flex flex-wrap items-start gap-5">
-          <AppIcon :icono="app.icono" :tamano="96" />
-          <div class="flex min-w-0 flex-1 flex-col gap-2">
-            <div class="flex flex-wrap items-center gap-3">
-              <h1 class="font-semibold text-2xl">{{ app.titulo }}</h1>
-              <OriginBadge :origen="app.origen" :repositorio="app.repositorio" />
+        <div class="flex flex-col items-start gap-5 @lg:flex-row @lg:flex-wrap">
+          <AppIcon :icon="app.icono" :size="96" />
+          <div class="flex w-full min-w-0 flex-col gap-2 @lg:w-auto @lg:flex-1">
+            <div class="flex min-w-0 flex-wrap items-center gap-3">
+              <h1 class="min-w-0 break-words font-semibold text-2xl">{{ app.titulo }}</h1>
+              <OriginBadge :origin="app.origen" :repository="app.repositorio" />
             </div>
             <p class="text-base text-tx-muted leading-snug">{{ app.resumen }}</p>
             <p v-if="app.autor" class="text-tx-muted text-xs">{{ app.autor }}</p>
 
-            <a
+            <ActionButton
               v-if="web"
               :href="web"
               target="_blank"
-              rel="noreferrer noopener"
-              class="mt-1 inline-flex w-fit items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1.5 font-semibold text-primary text-xs transition-colors hover:bg-primary hover:text-tx-on-primary">
-              {{ t('detalle.web') }}
-              <span aria-hidden="true">↗</span>
-            </a>
+              variant="secondary"
+              size="sm"
+              class="mt-1 w-fit"
+              :label="t('detalle.web')"
+              icon="external-link-symbolic"
+              icon-right />
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
-            <BotonAccion v-if="delAur" tono="principal" @click="verReceta">
-              {{ t('detalle.verReceta') }}
-            </BotonAccion>
+            <ActionButton v-if="fromAur" :label="t('detalle.verReceta')" @click="showRecipe" />
             <template v-else>
-              <BotonAccion
+              <ActionButton
                 v-if="app.actualizable || !app.instalada"
-                tono="principal"
-                :deshabilitado="operaciones.ocupado || operaciones.enCola(app.nombre)"
-                @click="operaciones.encolar(app.nombre)">
-                {{ app.actualizable ? t('detalle.actualizar') : t('detalle.instalar') }}
-              </BotonAccion>
-              <span
-                v-else
-                class="rounded-full bg-ui-surface px-3 py-1.5 font-semibold text-tx-muted text-xs">
-                {{ t('detalle.instalado') }}
-              </span>
-              <BotonAccion
+                :label="app.actualizable ? t('detalle.actualizar') : t('detalle.instalar')"
+                :disabled="operaciones.ocupado || operaciones.enCola(app.nombre)"
+                @click="operaciones.encolar(app.nombre)" />
+              <Badge v-else size="md" :label="t('detalle.instalado')" />
+              <ActionButton
                 v-if="app.instalada"
-                tono="peligro"
-                :deshabilitado="operaciones.ocupado"
-                @click="operaciones.pedir('quitar', [app.nombre], app.titulo, true)">
-                {{ t('detalle.quitar') }}
-              </BotonAccion>
+                variant="danger"
+                :label="t('detalle.quitar')"
+                :disabled="operaciones.ocupado"
+                @click="operaciones.pedir('quitar', [app.nombre], app.titulo, true)" />
             </template>
           </div>
         </div>
 
-        <p v-if="delAur" class="mt-3 text-status-warning text-xs leading-relaxed">
+        <p v-if="fromAur" class="mt-3 text-status-warning text-xs leading-relaxed">
           {{ t('origen.aurNota') }}
         </p>
       </header>
 
-      <div class="flex flex-col gap-6 p-6">
-        <p v-if="operaciones.falla || falla" class="text-sm text-status-error">
-          {{ operaciones.falla || falla }}
+      <div class="flex min-w-0 flex-col gap-6 p-6">
+        <p v-if="operaciones.falla || failure" class="text-sm text-status-error">
+          {{ operaciones.falla || failure }}
         </p>
 
-        <section v-if="app.capturas.length > 0" class="flex flex-col gap-2">
+        <section v-if="app.capturas.length > 0" class="flex min-w-0 flex-col gap-2">
           <h2 class="font-semibold text-sm">{{ t('detalle.capturas') }}</h2>
-          <ScreenshotCarousel :capturas="app.capturas" />
+          <ScreenshotCarousel :screenshots="app.capturas" />
         </section>
-        <p v-else-if="!delAur" class="text-tx-muted text-xs">{{ t('detalle.sinCapturas') }}</p>
+        <p v-else-if="!fromAur" class="text-tx-muted text-xs">{{ t('detalle.sinCapturas') }}</p>
 
         <p v-if="app.descripcion" class="whitespace-pre-line text-sm leading-relaxed">
           {{ app.descripcion }}
         </p>
 
         <!-- La ficha de datos: filas con separador, la etiqueta a la izquierda
-             y el valor a la derecha. Antes era una rejilla de pares sueltos, sin
-             jerarquía y sin una línea que guiara la lectura. -->
-        <section v-if="datos.length > 0" class="flex flex-col gap-2">
+             y el valor a la derecha. -->
+        <section v-if="facts.length > 0" class="flex flex-col gap-2">
           <h2 class="font-semibold text-sm">{{ t('detalle.informacion') }}</h2>
-          <dl class="overflow-hidden rounded-corner border border-ui-border bg-ui-surface/30">
-            <div
-              v-for="(fila, indice) in datos"
-              :key="fila.etiqueta"
-              class="flex items-baseline justify-between gap-6 px-4 py-2.5 text-sm"
-              :class="indice > 0 ? 'border-ui-border border-t' : ''">
-              <dt class="shrink-0 text-tx-muted">{{ fila.etiqueta }}</dt>
-              <dd class="min-w-0 truncate text-right font-medium">{{ fila.valor }}</dd>
-            </div>
-          </dl>
+          <div class="rounded-corner-l border border-ui-line bg-ui-surface/30 px-4">
+            <PropertyList :items="facts" layout="rows" />
+          </div>
         </section>
 
         <section v-if="app.dependencias.length > 0" class="flex flex-col gap-1">
@@ -243,22 +245,20 @@ watch(
       </div>
     </template>
 
-    <AppDialog :abierto="viendoReceta" :titulo="t('detalle.receta')" @cerrar="viendoReceta = false">
+    <AppDialog :open="showingRecipe" :title="t('detalle.receta')" @close="showingRecipe = false">
       <p class="mb-3 text-sm text-status-warning leading-relaxed">{{ t('detalle.recetaNota') }}</p>
-      <pre class="overflow-auto rounded-corner-sm bg-ui-surface/60 p-3 font-mono text-xs leading-relaxed">{{ receta }}</pre>
-      <template #pie>
-        <BotonAccion @click="viendoReceta = false">{{ t('comun.cancelar') }}</BotonAccion>
-        <BotonAccion tono="principal" :deshabilitado="operaciones.ocupado" @click="compilar">
-          {{ t('detalle.compilarEInstalar') }}
-        </BotonAccion>
+      <CodeBlock :text="recipe" :wrap="false" :label="t('detalle.receta')" />
+      <template #footer>
+        <ActionButton variant="secondary" :label="t('comun.cancelar')" @click="showingRecipe = false" />
+        <ActionButton :label="t('detalle.compilarEInstalar')" :disabled="operaciones.ocupado" @click="build" />
       </template>
     </AppDialog>
 
     <PreviewDialog
-      :abierto="operaciones.preguntando"
-      :informe="operaciones.informe"
-      :titulo="t('operacion.previsualizacion')"
-      @cerrar="operaciones.cancelar"
-      @confirmar="operaciones.confirmar" />
+      :open="operaciones.preguntando"
+      :report="operaciones.informe"
+      :title="t('operacion.previsualizacion')"
+      @close="operaciones.cancelar"
+      @confirm="operaciones.confirmar" />
   </div>
 </template>

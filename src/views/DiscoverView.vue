@@ -19,15 +19,34 @@
  * La categoría y el texto van en la query. Guardados sólo en memoria, el botón
  * de atrás salía de Descubrir en lugar de volver a la categoría anterior, y una
  * ventana reabierta perdía dónde estaba.
+ *
+ * # Una columna por vez cuando la ventana es angosta
+ *
+ * Por debajo de su ancho habitual la barra lateral no entra al lado del
+ * contenido: se plegaba a una tira de iconos, la búsqueda desaparecía y las
+ * tarjetas quedaban aplastadas. Ahí la pantalla pasa a una columna, como una
+ * aplicación de teléfono: arriba la búsqueda y un botón de «Categorías», que
+ * cambia el contenido por la lista de categorías con un «Volver». Elegir una
+ * vuelve al contenido. El ancho se mide sobre la fila de la pantalla con un
+ * `ResizeObserver` —en WebKitGTK no llegan ni `matchMedia` ni `resize`—, y el
+ * corte es el mismo en que `SideBar` se pliega sola: 48rem.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { EmptyState, SearchField, SideBar, type SidebarCategory } from '@vasakgroup/vue-libvasak';
+import {
+	ActionButton,
+	EmptyState,
+	ListGroup,
+	ListRow,
+	LoadingState,
+	SearchField,
+	SideBar,
+	type SidebarCategory,
+} from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import FeaturedCard from '@/components/store/FeaturedCard.vue';
-import BotonAccion from '@/components/ui/BotonAccion.vue';
-import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
+import { useElementWidth } from '@/composables/useElementWidth';
 import { useAjustes } from '@/stores/ajustes';
 import { useOperaciones } from '@/stores/operaciones';
 import {
@@ -49,9 +68,9 @@ const ajustes = useAjustes();
 const PORTADA = '';
 
 const portada = ref<Descubrimiento | null>(null);
-const listado = ref<Tarjeta[]>([]);
-const cargando = ref(true);
-const falla = ref('');
+const listing = ref<Tarjeta[]>([]);
+const loading = ref(true);
+const failure = ref('');
 
 const categoria = computed(() => String(ruta.query.cat ?? PORTADA));
 const texto = computed(() => String(ruta.query.q ?? ''));
@@ -72,53 +91,53 @@ const ESPERA = 250;
  * necesita algo donde escribir. Van atados en un sentido: el botón de atrás
  * vuelve a la búsqueda anterior y el campo tiene que acompañar.
  */
-const borrador = ref(texto.value);
-watch(texto, (ahora) => {
-	borrador.value = ahora;
+const draft = ref(texto.value);
+watch(texto, (now) => {
+	draft.value = now;
 });
 const buscando = computed(() => texto.value.trim().length > 0);
 
-const ocupado = computed(() => operaciones.ocupado);
+const busy = computed(() => operaciones.ocupado);
 
 /** Cada búsqueda lleva su número, para descartar respuestas que llegan tarde. */
 let ultima = 0;
 
-async function cargar() {
+async function load() {
 	const mia = ++ultima;
-	cargando.value = true;
-	falla.value = '';
+	loading.value = true;
+	failure.value = '';
 	try {
 		if (buscando.value) {
 			const pagina = await buscarEnLaTienda(texto.value, ajustes.aur);
 			if (mia !== ultima) return;
-			listado.value = pagina.resultados;
+			listing.value = pagina.resultados;
 		} else if (categoria.value !== PORTADA) {
 			const pagina = await deCategoria(categoria.value, 200);
 			if (mia !== ultima) return;
-			listado.value = pagina.resultados;
+			listing.value = pagina.resultados;
 		} else {
 			const datos = await descubrir();
 			if (mia !== ultima) return;
 			portada.value = datos;
-			listado.value = [];
+			listing.value = [];
 		}
 	} catch (error) {
 		if (mia === ultima) {
-			falla.value = String(error);
+			failure.value = String(error);
 		}
 	} finally {
 		if (mia === ultima) {
-			cargando.value = false;
+			loading.value = false;
 		}
 	}
 }
 
 /** Cambia la ruta; el observador de abajo es el que recarga. */
-function ir(cat: string, q = '') {
+function go(cat: string, q = '') {
 	router.push({ name: 'descubrir', query: { ...(cat ? { cat } : {}), ...(q ? { q } : {}) } });
 }
 
-function abrir(app: Tarjeta) {
+function open(app: Tarjeta) {
 	if (app.origen === 'appimage') {
 		router.push({ name: 'instaladas' });
 		return;
@@ -154,7 +173,7 @@ const grupos = computed<SidebarCategory[]>(() => [
  *
  * Buscando no es ninguno, y eso no se puede decir con la categoría vacía
  * porque la categoría vacía **es** «todo». De ahí el identificador que no
- * existe en el listado: con él, ningún botón se marca mientras hay una
+ * existe en la lista: con él, ningún botón se marca mientras hay una
  * búsqueda puesta, que es lo que corresponde — los resultados no salen de una
  * categoría.
  */
@@ -187,53 +206,123 @@ onMounted(async () => {
 			})
 			.catch(() => {});
 	}
-	await cargar();
+	await load();
 
 	// El AUR también: encenderlo desde Repositorios tiene que cambiar lo que se
 	// ve acá sin volver a escribir la búsqueda.
-	watch([categoria, texto, () => ajustes.aur], cargar);
+	watch([categoria, texto, () => ajustes.aur], load);
 });
 watch(
 	() => operaciones.enCurso,
-	(ahora, antes) => {
-		if (antes && !ahora) {
-			cargar();
+	(now, before) => {
+		if (before && !now) {
+			load();
 		}
 	}
 );
+
+/** Por debajo de esto la barra lateral no entra al lado del contenido. */
+const NARROW_BELOW = 768;
+
+const row = ref<HTMLElement | null>(null);
+const rowWidth = useElementWidth(row);
+/** Cero es «todavía sin maquetar»: ahí va la forma de siempre. */
+const narrow = computed(() => rowWidth.value > 0 && rowWidth.value < NARROW_BELOW);
+
+/** Qué columna se ve cuando hay lugar para una sola. */
+const pane = ref<'content' | 'categories'>('content');
+
+/** Elegir en la lista angosta: va a la categoría y vuelve al contenido. */
+function pick(id: string) {
+	pane.value = 'content';
+	go(id);
+}
+
+/** Buscar desde cualquiera de las dos formas. */
+function search(q: string) {
+	pane.value = 'content';
+	go(q ? '' : categoria.value, q);
+}
 </script>
 
 <template>
-  <div class="flex min-h-0 flex-1 gap-1 p-1">
+  <div ref="row" class="flex min-h-0 min-w-0 flex-1 gap-1 p-1" :data-narrow="narrow">
     <SideBar
+      v-if="!narrow"
       :title="t('app.nombre')"
       :subtitle="t('secciones.descubrir')"
       :categories="grupos"
       :model-value="seleccionada"
       :collapse-label="t('barraLateral.plegar')"
       :expand-label="t('barraLateral.desplegar')"
-      @change="(id: string) => ir(id)">
+      @change="(id: string) => go(id)">
       <!-- La búsqueda va en la cabecera, antes que cualquier categoría: en una
            tienda, buscar es lo primero que alguien hace. -->
       <template #header>
         <SearchField
-          v-model="borrador"
+          v-model="draft"
           :label="t('busqueda.marcador')"
           :debounce="ESPERA"
-          @search="(q: string) => ir(q ? '' : categoria, q)" />
+          @search="search" />
       </template>
     </SideBar>
 
+    <!-- La lista de categorías, cuando la ventana es angosta y se la pidió. -->
+    <section
+      v-if="narrow && pane === 'categories'"
+      class="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto rounded-corner-l border border-ui-line bg-ui-surface/70 p-3"
+      data-pane="categories">
+      <div class="flex min-w-0 flex-wrap items-center gap-2">
+        <ActionButton
+          variant="secondary"
+          icon="go-previous-symbolic"
+          :label="t('comun.volver')"
+          @click="pane = 'content'" />
+        <h2 class="min-w-0 break-words font-semibold text-lg">{{ t('categorias.titulo') }}</h2>
+      </div>
+      <ListGroup role="group" :label="t('categorias.titulo')">
+        <ListRow
+          v-for="item in grupos[0]?.items ?? []"
+          :key="item.id"
+          role="button"
+          :title="item.label"
+          :icon="item.icon"
+          :meta="item.badge === undefined ? undefined : String(item.badge)"
+          :selected="seleccionada === item.id"
+          @click="pick(item.id)" />
+      </ListGroup>
+    </section>
+
     <main
-      class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded-corner border border-ui-border bg-ui-surface/70 p-4">
-      <IndicadorDeCarga v-if="cargando" />
+      v-else
+      class="min-h-0 min-w-0 flex-1 overflow-y-auto overflow-x-hidden rounded-corner-l border border-ui-line bg-ui-surface/70 p-4">
+      <!-- Angosta, la búsqueda y la entrada a las categorías van arriba del
+           contenido: la barra lateral que las tenía no entra. -->
+      <div v-if="narrow" class="mb-4 flex min-w-0 items-center gap-2" data-pane="toolbar">
+        <div class="min-w-0 flex-1">
+          <SearchField
+            v-model="draft"
+            :label="t('busqueda.marcador')"
+            :debounce="ESPERA"
+            @search="search" />
+        </div>
+        <ActionButton
+          variant="secondary"
+          label=""
+          icon="view-list-symbolic"
+          :icon-alt="t('categorias.titulo')"
+          :title="t('categorias.titulo')"
+          @click="pane = 'categories'" />
+      </div>
+
+      <LoadingState v-if="loading" size="sm" :label="t('comun.cargando')" />
 
       <EmptyState
-        v-else-if="falla"
+        v-else-if="failure"
         icon="dialog-error"
         :title="t('comun.noSePudoLeer')"
-        :note="falla">
-        <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
+        :note="failure">
+        <ActionButton variant="secondary" :label="t('comun.reintentar')" @click="load" />
       </EmptyState>
 
       <!-- La portada: la fila destacada con capturas y la de lo recién
@@ -251,12 +340,12 @@ watch(
               v-for="app in portada.seleccion"
               :key="app.nombre"
               :app="app"
-              con-captura
-              :ocupado="ocupado"
-              :en-cola="operaciones.enCola(app.nombre)"
-              @abrir="abrir(app)"
-              @instalar="operaciones.encolar(app.nombre)"
-              @actualizar="operaciones.encolar(app.nombre)" />
+              with-screenshot
+              :busy="busy"
+              :queued="operaciones.enCola(app.nombre)"
+              @open="open(app)"
+              @install="operaciones.encolar(app.nombre)"
+              @update="operaciones.encolar(app.nombre)" />
           </div>
         </section>
 
@@ -272,17 +361,17 @@ watch(
               v-for="app in portada.novedades"
               :key="app.nombre"
               :app="app"
-              :ocupado="ocupado"
-              :en-cola="operaciones.enCola(app.nombre)"
-              @abrir="abrir(app)"
-              @instalar="operaciones.encolar(app.nombre)"
-              @actualizar="operaciones.encolar(app.nombre)" />
+              :busy="busy"
+              :queued="operaciones.enCola(app.nombre)"
+              @open="open(app)"
+              @install="operaciones.encolar(app.nombre)"
+              @update="operaciones.encolar(app.nombre)" />
           </div>
         </section>
       </div>
 
       <EmptyState
-        v-else-if="listado.length === 0"
+        v-else-if="listing.length === 0"
         icon="system-search"
         :title="t('busqueda.sinResultados')"
         :note="t('busqueda.sinResultadosNota')" />
@@ -297,10 +386,10 @@ watch(
             {{
               buscando
                 ? interpolar(
-                    t(`busqueda.${claveSegunCantidad('resultados', listado.length)}`),
-                    listado.length
+                    t(`busqueda.${claveSegunCantidad('resultados', listing.length)}`),
+                    listing.length
                   )
-                : cuantas(listado.length)
+                : cuantas(listing.length)
             }}
           </span>
         </header>
@@ -308,14 +397,14 @@ watch(
           class="grid gap-3"
           style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr))">
           <FeaturedCard
-            v-for="app in listado"
+            v-for="app in listing"
             :key="`${app.origen}:${app.nombre}`"
             :app="app"
-            :ocupado="ocupado"
-            :en-cola="operaciones.enCola(app.nombre)"
-            @abrir="abrir(app)"
-            @instalar="operaciones.encolar(app.nombre)"
-            @actualizar="operaciones.encolar(app.nombre)" />
+            :busy="busy"
+            :queued="operaciones.enCola(app.nombre)"
+            @open="open(app)"
+            @install="operaciones.encolar(app.nombre)"
+            @update="operaciones.encolar(app.nombre)" />
         </div>
       </div>
 
@@ -325,10 +414,10 @@ watch(
     </main>
 
     <PreviewDialog
-      :abierto="operaciones.preguntando"
-      :informe="operaciones.informe"
-      :titulo="t('operacion.previsualizacion')"
-      @cerrar="operaciones.cancelar"
-      @confirmar="operaciones.confirmar" />
+      :open="operaciones.preguntando"
+      :report="operaciones.informe"
+      :title="t('operacion.previsualizacion')"
+      @close="operaciones.cancelar"
+      @confirm="operaciones.confirmar" />
   </div>
 </template>

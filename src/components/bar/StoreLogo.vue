@@ -34,16 +34,19 @@ const { t } = useI18n();
  * reenvía lo que no declara—, y hay una prueba que lo comprueba, porque sin ese
  * atributo la ventana pierde zona de agarre sin que nada falle.
  */
-const ARRASTRE = { 'data-tauri-drag-region': '' } as const;
+const DRAG_REGION = { 'data-tauri-drag-region': '' } as const;
+
+// El icono va a color y no el glifo monocromo: es la identidad de la ventana,
+// como en el resto del escritorio. `icon` es lo que `ThemeIcon` trae por
+// omisión, pero va escrito porque es una decisión y no un descuido. (El
+// comentario vive acá y no en la plantilla: uno arriba de la raíz la vuelve
+// fragmento y los atributos dejan de llegar al `img`.)
 </script>
 <template>
-  <!-- A color y no el glifo monocromo: es la identidad de la ventana, como en
-       el resto del escritorio. `icon` es lo que `ThemeIcon` trae por omisión,
-       pero va escrito porque es una decisión y no un descuido. -->
   <ThemeIcon
     name="system-software-install"
     type="icon"
     :size="28"
     :alt="t('app.nombre')"
-    v-bind="ARRASTRE" />
+    v-bind="DRAG_REGION" />
 </template>

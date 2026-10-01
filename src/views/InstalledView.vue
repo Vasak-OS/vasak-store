@@ -5,18 +5,30 @@
  * Los dos juntos porque son la misma pregunta —«qué tengo»— aunque sean dos
  * mecanismos distintos. Los AppImage van en su propio bloque, con lo que se
  * puede hacer con ellos: abrirlos, sacarlos, o sumar uno soltándolo acá.
+ *
+ * El bloque de los AppImage es además la zona donde se sueltan: mientras se
+ * arrastra un archivo encima, la librería pone su `DropZone` sobre el bloque,
+ * con el velo y el aviso de «soltá acá». El contorno punteado de siempre se
+ * queda, porque es lo que dice que ahí se puede soltar antes de arrastrar.
  */
 
 import type { UnlistenFn } from '@tauri-apps/api/event';
 import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { EmptyState, SearchField, SwitchToggle } from '@vasakgroup/vue-libvasak';
+import {
+	ActionButton,
+	DropZone,
+	EmptyState,
+	ListCard,
+	LoadingState,
+	PageHeader,
+	SearchField,
+	SwitchToggle,
+} from '@vasakgroup/vue-libvasak';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
 import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import AppIcon from '@/components/store/AppIcon.vue';
 import AppGrid from '@/components/store/AppGrid.vue';
-import BotonAccion from '@/components/ui/BotonAccion.vue';
-import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import {
 	type AppImage,
@@ -35,78 +47,78 @@ const operaciones = useOperaciones();
 /** Cuánto se espera tras la última tecla antes de volver a pedir la lista. */
 const ESPERA = 250;
 
-const filtro = ref('');
-const lista = ref<Tarjeta[]>([]);
+const filter = ref('');
+const list = ref<Tarjeta[]>([]);
 const portables = ref<AppImage[]>([]);
-const cargando = ref(true);
-const conHuerfanas = ref(true);
-const soltando = ref(false);
+const loading = ref(true);
+const withOrphans = ref(true);
+const dropping = ref(false);
 /** El error de la lectura, que deja la pantalla sin nada que mostrar. */
-const falla = ref('');
-let soltar: UnlistenFn | null = null;
+const failure = ref('');
+let stopDropping: UnlistenFn | null = null;
 
-async function cargar() {
-	cargando.value = true;
-	falla.value = '';
+async function load() {
+	loading.value = true;
+	failure.value = '';
 	try {
 		const [instaladas, appimages] = await Promise.all([
-			pedirInstaladas(filtro.value),
+			pedirInstaladas(filter.value),
 			pedirAppimages(),
 		]);
-		lista.value = instaladas.resultados;
+		list.value = instaladas.resultados;
 		portables.value = appimages;
 	} catch (error) {
 		// Un fallo acá se veía como «no hay nada instalado», que en esta pantalla
 		// es una mentira alarmante.
-		falla.value = String(error);
+		failure.value = String(error);
 	} finally {
-		cargando.value = false;
+		loading.value = false;
 	}
 }
 
 /** Corre una acción sobre un AppImage y deja el error a la vista si falla. */
-async function conAviso(accion: () => Promise<unknown>) {
-	falla.value = '';
+async function withNotice(action: () => Promise<unknown>) {
+	failure.value = '';
 	try {
-		await accion();
+		await action();
 	} catch (error) {
-		falla.value = String(error);
+		failure.value = String(error);
 	}
-	await cargar();
+	await load();
 }
 
-async function integrar(rutas: string[]) {
-	for (const ruta of rutas) {
-		await conAviso(() => integrarAppimage(ruta));
+async function integrate(paths: string[]) {
+	for (const path of paths) {
+		await withNotice(() => integrarAppimage(path));
 	}
 }
 
 onMounted(async () => {
-	await cargar();
+	await load();
 	// Soltar un archivo en la ventana. Es un evento del WebView de Tauri y no el
 	// `drop` del navegador: el WebView no recibe la ruta real del archivo, sólo
 	// un objeto `File` sin ruta, y para copiarlo hace falta la ruta.
-	soltar = await getCurrentWebview().onDragDropEvent(async (evento) => {
-		if (evento.payload.type === 'over') {
-			soltando.value = true;
+	stopDropping = await getCurrentWebview().onDragDropEvent(async (event) => {
+		if (event.payload.type === 'over') {
+			dropping.value = true;
 			return;
 		}
-		if (evento.payload.type === 'drop') {
-			soltando.value = false;
-			await integrar(evento.payload.paths.filter((ruta) => /\.appimage$/i.test(ruta)));
+		if (event.payload.type === 'drop') {
+			dropping.value = false;
+			await integrate(event.payload.paths.filter((path) => /\.appimage$/i.test(path)));
 			return;
 		}
-		soltando.value = false;
+		dropping.value = false;
 	});
 });
 
-onUnmounted(() => soltar?.());
+onUnmounted(() => stopDropping?.());
 
 watch(
 	() => operaciones.enCurso,
-	(ahora, antes) => {
-		if (antes && !ahora) {
-			cargar();
+	(now, before) => {
+		if (before && !now) {
+			load();
 		}
 	}
 );
@@ -114,87 +126,88 @@ watch(
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
-    <div class="flex flex-wrap items-center gap-3">
-      <h1 class="font-medium text-lg">{{ t('instaladas.titulo') }}</h1>
-      <label class="ml-auto flex items-center gap-2 text-sm" :title="t('instaladas.conHuerfanas')">
-        <SwitchToggle
-          :model-value="conHuerfanas"
-          :label="t('instaladas.conHuerfanas')"
-          @update:model-value="(valor) => (conHuerfanas = valor)" />
-        {{ t('instaladas.conHuerfanas') }}
-      </label>
-    </div>
+    <PageHeader :title="t('instaladas.titulo')">
+      <template #actions>
+        <label class="flex min-w-0 items-center gap-2 text-sm" :title="t('instaladas.conHuerfanas')">
+          <SwitchToggle
+            :model-value="withOrphans"
+            :label="t('instaladas.conHuerfanas')"
+            @update:model-value="(value) => (withOrphans = value)" />
+          <span class="min-w-0 break-words">{{ t('instaladas.conHuerfanas') }}</span>
+        </label>
+      </template>
+    </PageHeader>
 
     <!-- El filtro se escribe acá y se consulta al backend cuando se deja de
-         escribir: `cargar` pide la lista instalada, que no es gratis. -->
+         escribir: `load` pide la lista instalada, que no es gratis. -->
     <SearchField
-      v-model="filtro"
+      v-model="filter"
       :label="t('instaladas.filtro')"
       :debounce="ESPERA"
-      @search="cargar" />
+      @search="load" />
 
-    <p v-if="operaciones.falla || falla" class="text-sm text-status-error">
-      {{ operaciones.falla || falla }}
+    <p v-if="operaciones.falla || failure" class="text-sm text-status-error">
+      {{ operaciones.falla || failure }}
     </p>
 
     <section
-      class="flex flex-col gap-2 rounded-corner border border-dashed p-3 transition-colors"
-      :class="soltando ? 'border-primary bg-primary/10' : 'border-ui-border-strong'">
+      class="relative flex flex-col gap-2 rounded-corner-l border border-ui-border-strong border-dashed p-3">
       <h2 class="font-medium text-base">{{ t('instaladas.appimages') }}</h2>
       <p class="text-tx-muted text-xs leading-relaxed">{{ t('instaladas.appimagesNota') }}</p>
 
       <ul v-if="portables.length > 0" class="flex flex-col gap-2">
-        <li
-          v-for="portable in portables"
-          :key="portable.ruta"
-          class="flex flex-wrap items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-2">
-          <AppIcon :icono="{ tema: ['application-x-executable'] }" :tamano="28" />
-          <span class="flex min-w-0 flex-1 flex-col">
-            <span class="truncate text-sm">{{ portable.titulo }}</span>
-            <span class="truncate text-tx-muted text-xs" :title="portable.ruta">
-              {{ portable.administrado ? t('instaladas.integrado') : t('instaladas.suelto') }}
-              · {{ bytes(portable.tamano) }}
+        <li v-for="portable in portables" :key="portable.ruta">
+          <ListCard custom-class="flex-wrap justify-start! p-2!">
+            <AppIcon :icon="{ tema: ['application-x-executable'] }" :size="28" />
+            <span class="flex min-w-32 flex-1 flex-col">
+              <span class="truncate text-sm">{{ portable.titulo }}</span>
+              <span class="text-tx-muted text-xs" :title="portable.ruta">
+                {{ portable.administrado ? t('instaladas.integrado') : t('instaladas.suelto') }}
+                · {{ bytes(portable.tamano) }}
+              </span>
             </span>
-          </span>
-          <BotonAccion @click="conAviso(() => ejecutarAppimage(portable.ruta))">
-            {{ t('instaladas.ejecutar') }}
-          </BotonAccion>
-          <BotonAccion
-            v-if="!portable.administrado"
-            tono="principal"
-            :titulo="t('instaladas.integrarNota')"
-            @click="conAviso(() => integrarAppimage(portable.ruta))">
-            {{ t('instaladas.integrar') }}
-          </BotonAccion>
-          <BotonAccion
-            v-else
-            tono="peligro"
-            @click="conAviso(() => quitarAppimage(portable.ruta))">
-            {{ t('instaladas.quitarAppimage') }}
-          </BotonAccion>
+            <span class="ms-auto flex flex-wrap items-center gap-2">
+              <ActionButton
+                variant="secondary"
+                :label="t('instaladas.ejecutar')"
+                @click="withNotice(() => ejecutarAppimage(portable.ruta))" />
+              <ActionButton
+                v-if="!portable.administrado"
+                :label="t('instaladas.integrar')"
+                :title="t('instaladas.integrarNota')"
+                @click="withNotice(() => integrarAppimage(portable.ruta))" />
+              <ActionButton
+                v-else
+                variant="danger"
+                :label="t('instaladas.quitarAppimage')"
+                @click="withNotice(() => quitarAppimage(portable.ruta))" />
+            </span>
+          </ListCard>
         </li>
       </ul>
       <p v-else class="text-sm text-tx-muted">
         {{ t('instaladas.sinAppimages') }} — {{ t('instaladas.soltarAqui') }}
       </p>
+
+      <DropZone overlay :active="dropping" :label="t('instaladas.soltarAqui')" />
     </section>
 
-    <IndicadorDeCarga v-if="cargando" />
+    <LoadingState v-if="loading" size="sm" :label="t('comun.cargando')" />
     <EmptyState
-      v-else-if="falla"
+      v-else-if="failure"
       icon="dialog-error"
       :title="t('comun.noSePudoLeer')"
-      :note="falla">
-      <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
+      :note="failure">
+      <ActionButton variant="secondary" :label="t('comun.reintentar')" @click="load" />
     </EmptyState>
-    <EmptyState v-else-if="lista.length === 0" :title="t('instaladas.vacio')" />
-    <AppGrid v-else :apps="lista" />
+    <EmptyState v-else-if="list.length === 0" :title="t('instaladas.vacio')" />
+    <AppGrid v-else :apps="list" />
 
     <PreviewDialog
-      :abierto="operaciones.preguntando"
-      :informe="operaciones.informe"
-      :titulo="t('operacion.previsualizacion')"
-      @cerrar="operaciones.cancelar"
-      @confirmar="operaciones.confirmar" />
+      :open="operaciones.preguntando"
+      :report="operaciones.informe"
+      :title="t('operacion.previsualizacion')"
+      @close="operaciones.cancelar"
+      @confirm="operaciones.confirmar" />
   </div>
 </template>

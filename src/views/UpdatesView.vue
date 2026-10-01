@@ -6,56 +6,66 @@
  * demonio y pide autorización: mirar si hay actualizaciones escribe en
  * `/var/lib/pacman/sync`. Por eso no se hace sola al entrar — se muestra lo que
  * ya se sabe, que es instantáneo, y refrescar es una decisión.
+ *
+ * La cabecera es la `PageHeader` de la librería, con la cuenta como
+ * descripción y los dos botones como acciones; en una ventana angosta las
+ * acciones bajan debajo del título. Cada fila es una `ListCard` que se parte:
+ * el nombre y las versiones conservan un ancho mínimo y el botón baja a la
+ * línea siguiente antes de aplastarlos.
  */
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
-import { EmptyState } from '@vasakgroup/vue-libvasak';
-import { onMounted, ref, watch } from 'vue';
+import { ActionButton, EmptyState, ListCard, LoadingState, PageHeader } from '@vasakgroup/vue-libvasak';
+import { computed, onMounted, ref, watch } from 'vue';
 import PreviewDialog from '@/components/store/PreviewDialog.vue';
 import AppIcon from '@/components/store/AppIcon.vue';
-import BotonAccion from '@/components/ui/BotonAccion.vue';
-import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
 import { actualizaciones as pedirActualizaciones, type Tarjeta } from '@/tools/api';
 import { claveSegunCantidad, interpolar } from '@/tools/interpolar';
 
 const { t } = useI18n();
+
+const countText = computed(() =>
+	list.value.length > 0
+		? interpolar(t(`actualizaciones.${claveSegunCantidad('disponibles', list.value.length)}`), list.value.length)
+		: undefined
+);
 const operaciones = useOperaciones();
 const tienda = useTienda();
 
-const lista = ref<Tarjeta[]>([]);
-const cargando = ref(true);
+const list = ref<Tarjeta[]>([]);
+const loading = ref(true);
 /** El error de la lectura, que deja la pantalla sin nada que mostrar. */
-const falla = ref('');
+const failure = ref('');
 
-async function cargar() {
-	cargando.value = true;
-	falla.value = '';
+async function load() {
+	loading.value = true;
+	failure.value = '';
 	try {
-		lista.value = await pedirActualizaciones();
-		tienda.pendientes = lista.value.length;
+		list.value = await pedirActualizaciones();
+		tienda.pendientes = list.value.length;
 	} catch (error) {
 		// Sin esto, un fallo del backend se veía igual que «el sistema está al
 		// día»: la lista quedaba vacía y la pantalla decía que no hay nada que
 		// actualizar. Es el peor mensaje posible para un error.
-		falla.value = String(error);
+		failure.value = String(error);
 	} finally {
-		cargando.value = false;
+		loading.value = false;
 	}
 }
 
 // El error no se atrapa acá: el store lo deja en `operaciones.falla` y el panel
 // de abajo lo muestra. Un `catch` vacío alrededor de esto es lo que escondió que
 // la función que se llamaba no existiera.
-const comprobar = () => operaciones.comprobarActualizaciones(t('actualizaciones.sincronizar'));
+const check = () => operaciones.comprobarActualizaciones(t('actualizaciones.sincronizar'));
 
-onMounted(cargar);
+onMounted(load);
 // Al terminar cualquier operación, lo que se puede actualizar cambió.
 watch(
 	() => operaciones.enCurso,
-	(ahora, antes) => {
-		if (antes && !ahora) {
-			cargar();
+	(now, before) => {
+		if (before && !now) {
+			load();
 		}
 	}
 );
@@ -63,66 +73,62 @@ watch(
 
 <template>
   <div class="flex min-h-0 flex-1 flex-col gap-4 overflow-auto p-4">
-    <div class="flex flex-wrap items-center gap-3">
-      <h1 class="font-medium text-lg">{{ t('actualizaciones.titulo') }}</h1>
-      <span v-if="lista.length > 0" class="text-sm text-tx-muted">
-        {{ interpolar(t(`actualizaciones.${claveSegunCantidad('disponibles', lista.length)}`), lista.length) }}
-      </span>
-      <div class="ml-auto flex gap-2">
-        <BotonAccion :deshabilitado="!!operaciones.enCurso" @click="comprobar">
-          {{ t('actualizaciones.sincronizar') }}
-        </BotonAccion>
-        <BotonAccion
-          tono="principal"
-          :deshabilitado="lista.length === 0 || !!operaciones.enCurso || operaciones.preparando"
-          @click="operaciones.pedir('actualizar', [], t('actualizaciones.actualizarTodo'))">
-          {{ t('actualizaciones.actualizarTodo') }}
-        </BotonAccion>
-      </div>
-    </div>
+    <PageHeader :title="t('actualizaciones.titulo')" :description="countText">
+      <template #actions>
+        <ActionButton
+          variant="secondary"
+          :label="t('actualizaciones.sincronizar')"
+          :disabled="!!operaciones.enCurso"
+          @click="check" />
+        <ActionButton
+          :label="t('actualizaciones.actualizarTodo')"
+          :disabled="list.length === 0 || !!operaciones.enCurso || operaciones.preparando"
+          @click="operaciones.pedir('actualizar', [], t('actualizaciones.actualizarTodo'))" />
+      </template>
+    </PageHeader>
 
     <p v-if="operaciones.falla" class="text-sm text-status-error">{{ operaciones.falla }}</p>
 
-    <IndicadorDeCarga v-if="cargando" />
+    <LoadingState v-if="loading" size="sm" :label="t('comun.cargando')" />
     <EmptyState
-      v-else-if="falla"
+      v-else-if="failure"
       icon="dialog-error"
       :title="t('comun.noSePudoLeer')"
-      :note="falla">
-      <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
+      :note="failure">
+      <ActionButton variant="secondary" :label="t('comun.reintentar')" @click="load" />
     </EmptyState>
     <EmptyState
-      v-else-if="lista.length === 0"
+      v-else-if="list.length === 0"
       icon="emblem-ok"
       :title="t('actualizaciones.ninguna')"
       :note="t('actualizaciones.ningunaNota')" />
 
     <ul v-else class="flex flex-col gap-2">
-      <li
-        v-for="app in lista"
-        :key="app.nombre"
-        class="flex items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-3">
-        <AppIcon :icono="app.icono" :tamano="32" />
-        <span class="flex min-w-0 flex-1 flex-col">
-          <span class="truncate font-medium text-sm">{{ app.titulo }}</span>
-          <span class="text-tx-muted text-xs">
-            {{ interpolar(t('actualizaciones.desde'), app.version) }}
-            {{ interpolar(t('actualizaciones.hasta'), app.actualizable ?? '') }}
+      <li v-for="app in list" :key="app.nombre">
+        <ListCard custom-class="flex-wrap justify-start!">
+          <AppIcon :icon="app.icono" :size="32" />
+          <span class="flex min-w-32 flex-1 flex-col">
+            <span class="truncate font-medium text-sm">{{ app.titulo }}</span>
+            <span class="text-tx-muted text-xs">
+              {{ interpolar(t('actualizaciones.desde'), app.version) }}
+              {{ interpolar(t('actualizaciones.hasta'), app.actualizable ?? '') }}
+            </span>
           </span>
-        </span>
-        <BotonAccion
-          :deshabilitado="!!operaciones.enCurso || operaciones.preparando"
-          @click="operaciones.pedir('instalar', [app.nombre], app.titulo)">
-          {{ t('actualizaciones.actualizar') }}
-        </BotonAccion>
+          <ActionButton
+            variant="secondary"
+            class="ms-auto"
+            :label="t('actualizaciones.actualizar')"
+            :disabled="!!operaciones.enCurso || operaciones.preparando"
+            @click="operaciones.pedir('instalar', [app.nombre], app.titulo)" />
+        </ListCard>
       </li>
     </ul>
 
     <PreviewDialog
-      :abierto="operaciones.preguntando"
-      :informe="operaciones.informe"
-      :titulo="t('operacion.previsualizacion')"
-      @cerrar="operaciones.cancelar"
-      @confirmar="operaciones.confirmar" />
+      :open="operaciones.preguntando"
+      :report="operaciones.informe"
+      :title="t('operacion.previsualizacion')"
+      @close="operaciones.cancelar"
+      @confirm="operaciones.confirmar" />
   </div>
 </template>

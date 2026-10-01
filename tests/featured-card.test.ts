@@ -22,8 +22,8 @@ describe('abrir la ficha', () => {
 
 		await tarjeta.get('button').trigger('click');
 
-		expect(tarjeta.emitted('instalar')).toHaveLength(1);
-		expect(tarjeta.emitted('abrir')).toBeUndefined();
+		expect(tarjeta.emitted('install')).toHaveLength(1);
+		expect(tarjeta.emitted('open')).toBeUndefined();
 	});
 
 	test('el Enter en el botón tampoco', async () => {
@@ -31,7 +31,7 @@ describe('abrir la ficha', () => {
 
 		await tarjeta.get('button').trigger('keydown.enter');
 
-		expect(tarjeta.emitted('abrir')).toBeUndefined();
+		expect(tarjeta.emitted('open')).toBeUndefined();
 	});
 
 	test('el clic en la tarjeta sí', async () => {
@@ -39,16 +39,16 @@ describe('abrir la ficha', () => {
 		// dos pasarían igual y no estarían comprobando nada.
 		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
 
-		await tarjeta.get('article').trigger('click');
+		await tarjeta.get('[role="button"]').trigger('click');
 
-		expect(tarjeta.emitted('abrir')).toHaveLength(1);
+		expect(tarjeta.emitted('open')).toHaveLength(1);
 	});
 
 	test('y el teclado sobre la tarjeta también', async () => {
 		// Sin esto no hay forma de abrir una aplicación sin ratón: la tarjeta es
-		// un `article`, que no recibe foco ni se activa solo.
+		// la `ListCard` de la librería, que recibe foco y se activa con Enter y con espacio.
 		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
-		const articulo = tarjeta.get('article');
+		const articulo = tarjeta.get('[role="button"]');
 
 		expect(articulo.attributes('tabindex')).toBe('0');
 		expect(articulo.attributes('role')).toBe('button');
@@ -56,12 +56,12 @@ describe('abrir la ficha', () => {
 		await articulo.trigger('keydown.enter');
 		await articulo.trigger('keydown.space');
 
-		expect(tarjeta.emitted('abrir')).toHaveLength(2);
+		expect(tarjeta.emitted('open')).toHaveLength(2);
 	});
 
 	test('el botón de lo del AUR abre la ficha en vez de instalar', async () => {
 		// El control de la receta vive en la ficha, así que el botón de la tarjeta
-		// lleva ahí. Que el hijo emita `receta` no alcanza: lo que importa es en
+		// lleva ahí. Que el hijo emita `recipe` no alcanza: lo que importa es en
 		// qué lo convierte la tarjeta.
 		const tarjeta = mount(FeaturedCard, {
 			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }) },
@@ -69,8 +69,8 @@ describe('abrir la ficha', () => {
 
 		await tarjeta.get('button').trigger('click');
 
-		expect(tarjeta.emitted('abrir')).toHaveLength(1);
-		expect(tarjeta.emitted('instalar')).toBeUndefined();
+		expect(tarjeta.emitted('open')).toHaveLength(1);
+		expect(tarjeta.emitted('install')).toBeUndefined();
 	});
 
 	test('lo que tiene versión nueva sube como actualizar', async () => {
@@ -80,8 +80,8 @@ describe('abrir la ficha', () => {
 
 		await tarjeta.get('button').trigger('click');
 
-		expect(tarjeta.emitted('actualizar')).toHaveLength(1);
-		expect(tarjeta.emitted('instalar')).toBeUndefined();
+		expect(tarjeta.emitted('update')).toHaveLength(1);
+		expect(tarjeta.emitted('install')).toBeUndefined();
 	});
 });
 
@@ -91,7 +91,7 @@ describe('la portada de la tarjeta', () => {
 		// el protocolo de Tauri, la imagen queda rota y la fila destacada se ve
 		// como una lista cualquiera.
 		const tarjeta = mount(FeaturedCard, {
-			props: { app: unaApp({ captura: '/var/cache/tienda/krita.png' }), conCaptura: true },
+			props: { app: unaApp({ captura: '/var/cache/tienda/krita.png' }), withScreenshot: true },
 		});
 
 		const fuente = tarjeta.get('img').attributes('src') ?? '';
@@ -102,8 +102,33 @@ describe('la portada de la tarjeta', () => {
 	test('sin captura no queda una imagen rota', async () => {
 		// Un `img` con `src` vacío es un ícono de imagen fallada; el degradado
 		// solo alcanza para que la fila se vea destacada.
-		const tarjeta = mount(FeaturedCard, { props: { app: unaApp(), conCaptura: true } });
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp(), withScreenshot: true } });
 
 		expect(tarjeta.find('img').exists()).toBe(false);
+	});
+});
+
+describe('la forma', () => {
+	test('es la tarjeta de la librería y no se mueve al pasar por encima', async () => {
+		// La forma de Once UI no levanta ni agranda lo que se toca: el estado lo
+		// dice el velo de `ListCard`. Antes la tarjeta subía (`-translate-y`) y
+		// la portada se agrandaba (`scale-105`).
+		const { ListCard } = await import('@vasakgroup/vue-libvasak');
+		const tarjeta = mount(FeaturedCard, {
+			props: { app: unaApp({ captura: '/var/cache/tienda/krita.png' }), withScreenshot: true },
+		});
+
+		expect(tarjeta.findComponent(ListCard).exists()).toBe(true);
+		expect(tarjeta.html()).not.toMatch(/(?:hover|group-hover):-?(?:translate|scale)/);
+	});
+
+	test('en una columna angosta el botón baja en vez de aplastar el texto', () => {
+		// El texto tiene un ancho mínimo y la fila se parte: así, a 240 o 360
+		// píxeles, el resumen no queda en una tira de una palabra por renglón.
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
+		const fila = tarjeta.get('h3').element.closest('.flex-wrap.items-start') as HTMLElement | null;
+
+		expect(fila).not.toBeNull();
+		expect(tarjeta.get('h3').element.parentElement?.parentElement?.className).toContain('min-w-32');
 	});
 });

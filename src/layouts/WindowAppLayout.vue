@@ -39,7 +39,7 @@ const tienda = useTienda();
 
     <template #barra>
       <div class="flex min-w-0 flex-1 items-center justify-center" data-tauri-drag-region>
-        <SectionSwitcher :pendientes="tienda.pendientes" />
+        <SectionSwitcher :pending="tienda.pendientes" />
       </div>
     </template>
 

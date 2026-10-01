@@ -2,7 +2,7 @@
 /**
  * Las capturas de una aplicación, todas a la vez.
  *
- * Una tira que se desplaza en horizontal, con las miniaturas en su tamaño real
+ * Una strip que se desplaza en horizontal, con las miniaturas en su tamaño real
  * y ancladas —cada una se detiene alineada al borde—. Antes se veía **una
  * sola** y había que apretar una flecha para saber que existían más; mostrando
  * la tira, que hay cuatro capturas se ve de entrada, que es la mitad de para
@@ -14,116 +14,127 @@
  * Las flechas se quedan para el teclado y para los paneles táctiles donde el
  * desplazamiento horizontal no está configurado, y aparecen sólo cuando hay
  * algo hacia donde ir.
+ *
+ * El riel es propio —es una pieza única en el taller (§5 del inventario de
+ * vue-libvasak#74)—, pero sus botones no: las flechas son `ActionButton` sobre
+ * el medio (`overlay`) con `go-previous`/`go-next` del tema, en lugar de «‹ ›»
+ * escritos, y la miniatura ya no se levanta al pasar por encima.
+ *
+ * Una miniatura nunca es más ancha que la tira: en una ventana angosta se
+ * achica en vez de salirse por el costado.
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
+import { ActionButton } from '@vasakgroup/vue-libvasak';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import AppDialog from '@/components/ui/AppDialog.vue';
 import type { Captura } from '@/tools/api';
 
-const props = defineProps<{ capturas: Captura[] }>();
+const props = defineProps<{ screenshots: Captura[] }>();
 const { t } = useI18n();
 
-const tira = ref<HTMLElement | null>(null);
-const puedeIzquierda = ref(false);
-const puedeDerecha = ref(false);
-const ampliada = ref<Captura | null>(null);
+const strip = ref<HTMLElement | null>(null);
+const canGoLeft = ref(false);
+const canGoRight = ref(false);
+const enlarged = ref<Captura | null>(null);
 
-const fuentes = computed(() =>
-	props.capturas.map((captura) => ({ ...captura, src: convertFileSrc(captura.ruta) }))
+const sources = computed(() =>
+	props.screenshots.map((shot) => ({ ...shot, src: convertFileSrc(shot.ruta) }))
 );
 
-function revisar() {
-	const caja = tira.value;
-	if (!caja) {
+function check() {
+	const box = strip.value;
+	if (!box) {
 		return;
 	}
-	puedeIzquierda.value = caja.scrollLeft > 4;
+	canGoLeft.value = box.scrollLeft > 4;
 	// El margen de cuatro píxeles evita que el redondeo del navegador deje la
 	// flecha encendida para siempre al final de la tira.
-	puedeDerecha.value = caja.scrollLeft + caja.clientWidth < caja.scrollWidth - 4;
+	canGoRight.value = box.scrollLeft + box.clientWidth < box.scrollWidth - 4;
 }
 
-function mover(hacia: number) {
-	const caja = tira.value;
-	if (!caja) {
+function move(direction: number) {
+	const box = strip.value;
+	if (!box) {
 		return;
 	}
-	caja.scrollBy({ left: hacia * caja.clientWidth * 0.8, behavior: 'smooth' });
+	box.scrollBy({ left: direction * box.clientWidth * 0.8, behavior: 'smooth' });
 }
 
 // Las flechas dependen de cuánto mide la tira, y eso cambia después de montar:
 // las imágenes van con `loading="lazy"` y ocupan su lugar recién al cargar, y
 // la ventana se puede redimensionar. Mirando sólo al montar, la flecha derecha
 // se quedaba escondida sobre una tira que sí se podía desplazar.
-let observador: ResizeObserver | null = null;
+let observer: ResizeObserver | null = null;
 
 onMounted(() => {
-	revisar();
-	if (typeof ResizeObserver === 'undefined' || !tira.value) {
+	check();
+	if (typeof ResizeObserver === 'undefined' || !strip.value) {
 		return;
 	}
-	observador = new ResizeObserver(revisar);
-	observador.observe(tira.value);
+	observer = new ResizeObserver(check);
+	observer.observe(strip.value);
 });
 
-onBeforeUnmount(() => observador?.disconnect());
+onBeforeUnmount(() => observer?.disconnect());
 </script>
 
 <template>
-  <div v-if="fuentes.length > 0" class="relative">
+  <div v-if="sources.length > 0" class="relative">
     <div
-      ref="tira"
+      ref="strip"
       class="flex snap-x snap-mandatory gap-3 overflow-x-auto pb-2"
-      @scroll="revisar">
+      @scroll="check">
       <figure
-        v-for="captura in fuentes"
-        :key="captura.ruta"
-        class="flex shrink-0 snap-start flex-col gap-1">
+        v-for="shot in sources"
+        :key="shot.ruta"
+        class="flex max-w-[min(36rem,100%)] shrink-0 snap-start flex-col gap-1">
         <button
           type="button"
-          class="overflow-hidden rounded-corner border border-ui-border bg-ui-surface/70 transition-transform hover:-translate-y-0.5 hover:shadow-lg"
-          :aria-label="captura.titulo || t('detalle.capturas')"
-          @click="ampliada = captura">
+          class="overflow-hidden rounded-corner-l border border-ui-line bg-ui-surface/70 transition-colors duration-200 ease-ui hover:border-ui-border-strong focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-focus"
+          :aria-label="shot.titulo || t('detalle.capturas')"
+          @click="enlarged = shot">
           <img
-            :src="captura.src"
-            :alt="captura.titulo"
+            :src="shot.src"
+            :alt="shot.titulo"
             loading="lazy"
-            class="h-56 w-auto max-w-[36rem] object-cover"
-            @load="revisar">
+            class="h-56 w-auto max-w-full object-cover"
+            @load="check">
         </button>
-        <figcaption v-if="captura.titulo" class="max-w-[36rem] truncate text-tx-muted text-xs">
-          {{ captura.titulo }}
+        <figcaption v-if="shot.titulo" class="truncate text-tx-muted text-xs">
+          {{ shot.titulo }}
         </figcaption>
       </figure>
     </div>
 
-    <button
-      v-if="puedeIzquierda"
-      type="button"
-      class="-translate-y-1/2 absolute top-1/2 left-1 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm shadow-sm"
-      :aria-label="t('detalle.capturaAnterior')"
-      @click="mover(-1)">
-      ‹
-    </button>
-    <button
-      v-if="puedeDerecha"
-      type="button"
-      class="-translate-y-1/2 absolute top-1/2 right-1 rounded-full border border-ui-border bg-ui-bg/90 px-2 py-1 text-sm shadow-sm"
-      :aria-label="t('detalle.capturaSiguiente')"
-      @click="mover(1)">
-      ›
-    </button>
+    <ActionButton
+      v-if="canGoLeft"
+      label=""
+      variant="overlay"
+      icon="go-previous-symbolic"
+      :icon-alt="t('detalle.capturaAnterior')"
+      :title="t('detalle.capturaAnterior')"
+      class="-translate-y-1/2 absolute top-1/2 left-1"
+      @click="move(-1)" />
+    <ActionButton
+      v-if="canGoRight"
+      label=""
+      variant="overlay"
+      icon="go-next-symbolic"
+      :icon-alt="t('detalle.capturaSiguiente')"
+      :title="t('detalle.capturaSiguiente')"
+      class="-translate-y-1/2 absolute top-1/2 right-1"
+      @click="move(1)" />
 
     <AppDialog
-      :abierto="ampliada !== null"
-      :titulo="ampliada?.titulo || t('detalle.capturas')"
-      @cerrar="ampliada = null">
+      :open="enlarged !== null"
+      :title="enlarged?.titulo || t('detalle.capturas')"
+      @close="enlarged = null">
       <img
-        v-if="ampliada"
-        :src="convertFileSrc(ampliada.ruta)"
-        :alt="ampliada.titulo"
-        class="mx-auto max-h-[70vh] w-auto rounded-corner">
+        v-if="enlarged"
+        :src="convertFileSrc(enlarged.ruta)"
+        :alt="enlarged.titulo"
+        class="mx-auto max-h-[70vh] w-auto rounded-corner-m">
     </AppDialog>
   </div>
 </template>
