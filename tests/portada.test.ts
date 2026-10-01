@@ -20,9 +20,9 @@
 
 import { describe, expect, test } from 'bun:test';
 
-const portada = await Bun.file(new URL('../src/views/DescubrirView.vue', import.meta.url)).text();
+const portada = await Bun.file(new URL('../src/views/DiscoverView.vue', import.meta.url)).text();
 const tarjeta = await Bun.file(
-	new URL('../src/components/tienda/TarjetaGrande.vue', import.meta.url)
+	new URL('../src/components/store/FeaturedCard.vue', import.meta.url)
 ).text();
 const router = await Bun.file(new URL('../src/router/index.ts', import.meta.url)).text();
 
@@ -39,7 +39,7 @@ describe('la portada', () => {
 		// El botón en la tarjeta ahorra entrar a la ficha; lo que no se saltea
 		// nunca es ver qué arrastra la operación.
 		expect(portada).toContain('operaciones.encolar(app.nombre)');
-		expect(portada).toContain('DialogoDePrevisualizacion');
+		expect(portada).toContain('PreviewDialog');
 	});
 
 	test('la tarjeta muestra lo que está esperando su turno', () => {
@@ -49,12 +49,12 @@ describe('la portada', () => {
 
 describe('la tarjeta', () => {
 	test('lleva el ícono y el botón de instalar', () => {
-		expect(tarjeta).toContain('IconoDeApp');
-		expect(tarjeta).toContain('BotonInstalar');
+		expect(tarjeta).toContain('AppIcon');
+		expect(tarjeta).toContain('InstallButton');
 	});
 
 	test('el ícono es grande', () => {
-		expect(tarjeta).toContain(':tamano="56"');
+		expect(tarjeta).toContain(':size="56"');
 	});
 });
 

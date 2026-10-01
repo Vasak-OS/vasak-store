@@ -16,8 +16,8 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { SearchField } from '@vasakgroup/vue-libvasak';
-import DescubrirView from '@/views/DescubrirView.vue';
-import InstaladasView from '@/views/InstaladasView.vue';
+import DiscoverView from '@/views/DiscoverView.vue';
+import InstalledView from '@/views/InstalledView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
 import { asentar, desmontarTodo, montarVista } from './montar';
 
@@ -40,7 +40,7 @@ afterEach(desmontarTodo);
 
 describe('en Instaladas', () => {
 	test('escribir no vuelve a pedir la lista en cada tecla', async () => {
-		const { vista } = await montarVista(InstaladasView, '/instaladas');
+		const { vista } = await montarVista(InstalledView, '/instaladas');
 		await asentar();
 		const alMontar = pedidos('instaladas').length;
 
@@ -55,7 +55,7 @@ describe('en Instaladas', () => {
 	});
 
 	test('y al parar de escribir pide una sola vez, con lo último', async () => {
-		const { vista } = await montarVista(InstaladasView, '/instaladas');
+		const { vista } = await montarVista(InstalledView, '/instaladas');
 		await asentar();
 		const alMontar = pedidos('instaladas').length;
 
@@ -75,7 +75,7 @@ describe('en Descubrir', () => {
 	test('el campo arranca con lo que dice la ruta', async () => {
 		// La búsqueda vive en la query: recargar con `?q=krita` tiene que dejar
 		// el campo escrito, no vacío con resultados de algo que no se ve.
-		const { vista } = await montarVista(DescubrirView, '/descubrir?q=krita');
+		const { vista } = await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
 		expect(vista.findComponent(SearchField).props('modelValue')).toBe('krita');
@@ -85,7 +85,7 @@ describe('en Descubrir', () => {
 		// Es el botón de atrás: vuelve a la búsqueda anterior, y el campo tiene
 		// que acompañar. Sin esto queda escrito lo último que se tipeó mientras
 		// la pantalla muestra otra cosa.
-		const { vista, router } = await montarVista(DescubrirView, '/descubrir?q=krita');
+		const { vista, router } = await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
 		await router.push({ name: 'descubrir', query: { q: 'gimp' } });
@@ -98,7 +98,7 @@ describe('en Descubrir', () => {
 		// Acá el rebote es lo que más importa de todo: cada búsqueda recorre
 		// quince mil paquetes y encima consulta al AUR. Navegar por tecla
 		// además llenaría el historial de entradas que nadie pidió.
-		const { vista, router } = await montarVista(DescubrirView, '/descubrir');
+		const { vista, router } = await montarVista(DiscoverView, '/descubrir');
 		await asentar();
 
 		const campo = vista.find('input');
@@ -114,7 +114,7 @@ describe('en Descubrir', () => {
 	});
 
 	test('buscar navega, que es donde vive el texto', async () => {
-		const { vista, router } = await montarVista(DescubrirView, '/descubrir');
+		const { vista, router } = await montarVista(DiscoverView, '/descubrir');
 		await asentar();
 
 		// Enter busca ya, sin esperar el rebote.

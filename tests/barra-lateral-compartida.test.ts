@@ -16,12 +16,12 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { SideBar, SideButton } from '@vasakgroup/vue-libvasak';
-import DescubrirView from '@/views/DescubrirView.vue';
+import DiscoverView from '@/views/DiscoverView.vue';
 import { olvidarTodo, responder } from './dobles';
 import { unaApp } from './ejemplos';
 import { asentar, desmontarTodo, montarVista } from './montar';
 
-const portada = await Bun.file(new URL('../src/views/DescubrirView.vue', import.meta.url)).text();
+const portada = await Bun.file(new URL('../src/views/DiscoverView.vue', import.meta.url)).text();
 const css = await Bun.file(new URL('../src/assets/main.css', import.meta.url)).text();
 
 /** Dos categorías del catálogo, que es lo que la barra dibuja. */
@@ -35,7 +35,7 @@ async function abrirLaPortada(donde = '/descubrir') {
 	responder('buscar', { resultados: [unaApp()], total: 1 });
 	responder('de_categoria', { resultados: [unaApp()], total: 1 });
 	responder('ajustes', { aur: false });
-	const montada = await montarVista(DescubrirView, donde);
+	const montada = await montarVista(DiscoverView, donde);
 	await asentar();
 	return montada;
 }
@@ -163,7 +163,8 @@ describe('el color de los paneles', () => {
 			...new Bun.Glob('**/*.vue').scanSync({ cwd: new URL('../src', import.meta.url).pathname }),
 		];
 		// Sin esto, un glob que no encuentra nada deja la prueba en verde.
-		expect(vistos.length).toBeGreaterThan(20);
+		// Diecinueve desde que `BotonAccion` e `IndicadorDeCarga` pasaron a la librería.
+		expect(vistos.length).toBeGreaterThan(15);
 
 		for (const archivo of vistos) {
 			const fuente = await Bun.file(

@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, jest, test } from 'bun:test';
 import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
+import StoreLogo from '@/components/bar/StoreLogo.vue';
 import { emitir, olvidarTodo, ponerEnElTema } from './dobles';
 
 /**
@@ -56,7 +56,7 @@ async function advancePastReload() {
 let mounted: VueWrapper | null = null;
 
 function mountLogo() {
-	mounted = mount(LogoDeLaTienda);
+	mounted = mount(StoreLogo);
 	return mounted;
 }
 

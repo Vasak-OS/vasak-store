@@ -16,22 +16,22 @@ const router = createRouter({
 		{
 			path: '/descubrir',
 			name: 'descubrir',
-			component: () => import('@/views/DescubrirView.vue'),
+			component: () => import('@/views/DiscoverView.vue'),
 		},
 		{
 			path: '/instaladas',
 			name: 'instaladas',
-			component: () => import('@/views/InstaladasView.vue'),
+			component: () => import('@/views/InstalledView.vue'),
 		},
 		{
 			path: '/actualizaciones',
 			name: 'actualizaciones',
-			component: () => import('@/views/ActualizacionesView.vue'),
+			component: () => import('@/views/UpdatesView.vue'),
 		},
 		{
 			path: '/repositorios',
 			name: 'repositorios',
-			component: () => import('@/views/RepositoriosView.vue'),
+			component: () => import('@/views/RepositoriesView.vue'),
 		},
 		// Buscar y navegar una categoría son Descubrir con otro estado, y ese
 		// estado vive en la query para que atrás y adelante funcionen. Las dos
@@ -53,7 +53,7 @@ const router = createRouter({
 			// atrás desde una lista mixta abría la que no era.
 			path: '/app/:origen/:nombre',
 			name: 'detalle',
-			component: () => import('@/views/DetalleView.vue'),
+			component: () => import('@/views/DetailView.vue'),
 		},
 	],
 });

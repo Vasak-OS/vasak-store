@@ -12,8 +12,8 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { AppBar, olvidarLosIconosDelTema, WindowControls, WindowFrame } from '@vasakgroup/vue-libvasak';
 import { mount, type VueWrapper } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
-import SelectorDeSeccion from '@/components/barra/SelectorDeSeccion.vue';
+import StoreLogo from '@/components/bar/StoreLogo.vue';
+import SectionSwitcher from '@/components/bar/SectionSwitcher.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { ponerEnElTema } from './dobles';
 import { desmontarTodo, montarVista } from './montar';
@@ -65,19 +65,19 @@ afterEach(() => {
 });
 
 const selector = await Bun.file(
-	new URL('../src/components/barra/SelectorDeSeccion.vue', import.meta.url)
+	new URL('../src/components/bar/SectionSwitcher.vue', import.meta.url)
 ).text();
 const layout = await Bun.file(
 	new URL('../src/layouts/WindowAppLayout.vue', import.meta.url)
 ).text();
 const logo = await Bun.file(
-	new URL('../src/components/barra/LogoDeLaTienda.vue', import.meta.url)
+	new URL('../src/components/bar/StoreLogo.vue', import.meta.url)
 ).text();
 
 describe('la barra de la ventana', () => {
 	test('el layout pone el logo de la tienda y el selector en la barra', () => {
-		expect(layout).toContain('LogoDeLaTienda');
-		expect(layout).toContain('SelectorDeSeccion');
+		expect(layout).toContain('StoreLogo');
+		expect(layout).toContain('SectionSwitcher');
 	});
 });
 
@@ -99,8 +99,8 @@ describe('el selector', () => {
 	});
 
 	test('las pantallas que cuelgan de una sección la dejan encendida', () => {
-		expect(selector).toContain("nombre === 'categoria'");
-		expect(selector).toContain("nombre === 'detalle'");
+		expect(selector).toContain("name === 'categoria'");
+		expect(selector).toContain("name === 'detalle'");
 	});
 });
 
@@ -148,7 +148,7 @@ describe('la ventana', () => {
 		const { vista } = await montarLaVentana();
 		const dentro = ranura(vista, 'identidad');
 
-		expect(dentro?.findComponent(LogoDeLaTienda).exists()).toBe(true);
+		expect(dentro?.findComponent(StoreLogo).exists()).toBe(true);
 	});
 
 	test('y el logotipo deja arrastrar la ventana desde ahí', async () => {
@@ -158,7 +158,7 @@ describe('la ventana', () => {
 		// distintas: si no llegara, la barra perdería zona de agarre y ninguna
 		// otra prueba lo diría.
 		ponerEnElTema('system-software-install', 'data:image/png;base64,LOGO');
-		const logo = mount(LogoDeLaTienda);
+		const logo = mount(StoreLogo);
 		sueltos.push(logo);
 		for (let i = 0; i < 6; i++) await nextTick();
 
@@ -172,7 +172,7 @@ describe('la ventana', () => {
 		// Sin ponerlo en el tema de mentira, el doble del glifo devuelve
 		// `simbolo:<nombre>`: si alguien cambiara la variante, el `src` lo
 		// delata. Pedir la que no está no falla, dibuja otra cosa.
-		const logo = mount(LogoDeLaTienda);
+		const logo = mount(StoreLogo);
 		sueltos.push(logo);
 		for (let i = 0; i < 6; i++) await nextTick();
 
@@ -185,9 +185,9 @@ describe('la ventana', () => {
 		// el logo y los botones. Por eso va en el contenido de la barra, dentro
 		// de un `flex-1` con el contenido centrado.
 		const { vista } = await montarLaVentana();
-		const selector = vista.findComponent(SelectorDeSeccion);
+		const selector = vista.findComponent(SectionSwitcher);
 
-		expect(vista.findComponent(AppBar).findComponent(SelectorDeSeccion).exists()).toBe(true);
+		expect(vista.findComponent(AppBar).findComponent(SectionSwitcher).exists()).toBe(true);
 		const caja = selector.element.parentElement as HTMLElement;
 		expect(caja.className).toContain('flex-1');
 		expect(caja.className).toContain('justify-center');
@@ -199,7 +199,7 @@ describe('la ventana', () => {
 		// casi toda la barra, así que perderlo ahí deja la ventana casi sin
 		// zona de agarre.
 		const { vista } = await montarLaVentana();
-		const caja = vista.findComponent(SelectorDeSeccion).element.parentElement as HTMLElement;
+		const caja = vista.findComponent(SectionSwitcher).element.parentElement as HTMLElement;
 
 		expect(caja.hasAttribute('data-tauri-drag-region')).toBe(true);
 	});

@@ -7,7 +7,7 @@
  * entra al programa y ninguno se comprueba**. Sale con 0 y no dice nada, que es
  * lo peor que puede hacer un control.
  *
- * Acá no es hipotético. Con la bandera puesta, `ActualizacionesView.vue` llamó
+ * Acá no es hipotético. Con la bandera puesta, `UpdatesView.vue` llamó
  * durante seis versiones a `operaciones.empezar`, que el store nunca devolvió:
  * un store de pinia no expone lo que no está en su `return`. Apretar «Comprobar
  * de nuevo» tiraba un `TypeError` que el `catch` de la pantalla se comía, así

@@ -17,7 +17,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, type PropType } from 'vue';
-import BotonInstalar from '@/components/tienda/BotonInstalar.vue';
+import InstallButton from '@/components/store/InstallButton.vue';
 import type { Tarjeta } from '@/tools/api';
 import { unaApp } from './ejemplos';
 
@@ -33,8 +33,8 @@ let llegadasALaTarjeta = 0;
 const Anfitrion = defineComponent({
 	props: {
 		app: { type: Object as PropType<Tarjeta>, required: true },
-		ocupado: { type: Boolean, default: false },
-		enCola: { type: Boolean, default: false },
+		busy: { type: Boolean, default: false },
+		queued: { type: Boolean, default: false },
 	},
 	setup(props) {
 		const contar = () => {
@@ -42,7 +42,7 @@ const Anfitrion = defineComponent({
 		};
 		return () =>
 			h('div', { onClick: contar, onKeydown: contar }, [
-				h(BotonInstalar, { app: props.app, ocupado: props.ocupado, enCola: props.enCola }),
+				h(InstallButton, { app: props.app, busy: props.busy, queued: props.queued }),
 			]);
 	},
 });
@@ -58,47 +58,47 @@ describe('lo que emite', () => {
 		// control vive en la ficha. Un botón «Instalar» acá lo saltearía —o, peor,
 		// fallaría con «no hay ningún paquete llamado X», porque el servicio sólo
 		// instala de los repositorios—.
-		const boton = mount(BotonInstalar, {
-			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }), ocupado: false },
+		const boton = mount(InstallButton, {
+			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }), busy: false },
 		});
 
 		await boton.get('button').trigger('click');
 
-		expect(boton.emitted('receta')).toHaveLength(1);
-		expect(boton.emitted('instalar')).toBeUndefined();
+		expect(boton.emitted('recipe')).toHaveLength(1);
+		expect(boton.emitted('install')).toBeUndefined();
 		expect(boton.text()).toBe('tarjeta.receta');
 	});
 
 	test('lo de los repositorios instala', async () => {
-		const boton = mount(BotonInstalar, { props: { app: unaApp(), ocupado: false } });
+		const boton = mount(InstallButton, { props: { app: unaApp(), busy: false } });
 
 		await boton.get('button').trigger('click');
 
-		expect(boton.emitted('instalar')).toHaveLength(1);
-		expect(boton.emitted('receta')).toBeUndefined();
+		expect(boton.emitted('install')).toHaveLength(1);
+		expect(boton.emitted('recipe')).toBeUndefined();
 	});
 
 	test('lo que tiene versión nueva actualiza, no instala de nuevo', async () => {
-		const boton = mount(BotonInstalar, {
-			props: { app: unaApp({ instalada: true, actualizable: '5.3.0-1' }), ocupado: false },
+		const boton = mount(InstallButton, {
+			props: { app: unaApp({ instalada: true, actualizable: '5.3.0-1' }), busy: false },
 		});
 
 		await boton.get('button').trigger('click');
 
-		expect(boton.emitted('actualizar')).toHaveLength(1);
-		expect(boton.emitted('instalar')).toBeUndefined();
+		expect(boton.emitted('update')).toHaveLength(1);
+		expect(boton.emitted('install')).toBeUndefined();
 		expect(boton.text()).toBe('tarjeta.actualizar');
 	});
 
 	test('lo instalado y al día no emite nada', async () => {
 		// Informa, no ofrece. Emitir acá mandaba a reinstalar algo que ya estaba.
-		const boton = mount(BotonInstalar, {
-			props: { app: unaApp({ instalada: true }), ocupado: false },
+		const boton = mount(InstallButton, {
+			props: { app: unaApp({ instalada: true }), busy: false },
 		});
 
 		await boton.get('button').trigger('click');
 
-		expect(boton.emitted('instalar')).toBeUndefined();
+		expect(boton.emitted('install')).toBeUndefined();
 		expect(boton.text()).toBe('tarjeta.instalada');
 	});
 });
@@ -109,33 +109,33 @@ describe('cuándo se apaga', () => {
 		// mientras algo corre espera en vez de fallar. Si el botón siguiera
 		// ofreciendo «Instalar», apretarlo otra vez no haría nada visible y la
 		// única lectura posible sería que la tienda se colgó.
-		const boton = mount(BotonInstalar, {
-			props: { app: unaApp(), ocupado: true, enCola: true },
+		const boton = mount(InstallButton, {
+			props: { app: unaApp(), busy: true, queued: true },
 		});
 
 		expect((boton.get('button').element as HTMLButtonElement).disabled).toBe(true);
 		expect(boton.text()).toBe('tarjeta.enCola');
 
 		await boton.get('button').trigger('click');
-		expect(boton.emitted('instalar')).toBeUndefined();
+		expect(boton.emitted('install')).toBeUndefined();
 	});
 
 	test('con una operación en curso, aunque el paquete no esté en la cola', async () => {
-		const boton = mount(BotonInstalar, { props: { app: unaApp(), ocupado: true } });
+		const boton = mount(InstallButton, { props: { app: unaApp(), busy: true } });
 
 		expect((boton.get('button').element as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	test('pero el de la receta no: leerla no toca nada', async () => {
 		// Es el único que sigue vivo con algo corriendo, porque no pide el candado.
-		const boton = mount(BotonInstalar, {
-			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }), ocupado: true },
+		const boton = mount(InstallButton, {
+			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }), busy: true },
 		});
 
 		expect((boton.get('button').element as HTMLButtonElement).disabled).toBe(false);
 
 		await boton.get('button').trigger('click');
-		expect(boton.emitted('receta')).toHaveLength(1);
+		expect(boton.emitted('recipe')).toHaveLength(1);
 	});
 });
 

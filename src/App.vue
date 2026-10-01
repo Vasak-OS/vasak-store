@@ -2,7 +2,7 @@
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
-import PanelDeOperacion from '@/components/tienda/PanelDeOperacion.vue';
+import OperationPanel from '@/components/store/OperationPanel.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
@@ -51,6 +51,6 @@ onUnmounted(() => {
     <!-- El panel de la operación vive en el marco y no en una pantalla: sigue
          ahí al cambiar de sección, que es justo lo que hace falta mientras algo
          se instala. -->
-    <PanelDeOperacion />
+    <OperationPanel />
   </WindowAppLayout>
 </template>
