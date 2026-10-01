@@ -16,8 +16,8 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { createPinia, setActivePinia } from 'pinia';
 import { useAjustes } from '@/stores/ajustes';
-import DescubrirView from '@/views/DescubrirView.vue';
-import RepositoriosView from '@/views/RepositoriosView.vue';
+import DiscoverView from '@/views/DiscoverView.vue';
+import RepositoriesView from '@/views/RepositoriesView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
 import { asentar, desmontarTodo, montarVista } from './montar';
 
@@ -115,7 +115,7 @@ describe('dónde está el interruptor', () => {
 		// descubrir** no lo tenga en ningún lado.
 		responder('buscar', { resultados: [], total: 0 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
-		const { vista } = await montarVista(DescubrirView, '/descubrir');
+		const { vista } = await montarVista(DiscoverView, '/descubrir');
 		await asentar();
 
 		expect(vista.find('[role="switch"]').exists()).toBe(false);
@@ -124,7 +124,7 @@ describe('dónde está el interruptor', () => {
 	test('está en Repositorios, con su advertencia', async () => {
 		responder('repositorios', []);
 		responder('ajustes', { aur: false });
-		const { vista } = await montarVista(RepositoriosView, '/repositorios');
+		const { vista } = await montarVista(RepositoriesView, '/repositorios');
 		await asentar();
 
 		const conmutador = vista.get('[role="switch"][aria-label="origen.aur"]');
@@ -136,7 +136,7 @@ describe('dónde está el interruptor', () => {
 	test('refleja lo que estaba guardado', async () => {
 		responder('repositorios', []);
 		responder('ajustes', { aur: true });
-		const { vista } = await montarVista(RepositoriosView, '/repositorios');
+		const { vista } = await montarVista(RepositoriesView, '/repositorios');
 		await asentar();
 
 		expect(
@@ -156,7 +156,7 @@ describe('dónde está el interruptor', () => {
 					contestarLosAjustes = listo;
 				})
 		);
-		const { vista } = await montarVista(RepositoriosView, '/repositorios');
+		const { vista } = await montarVista(RepositoriesView, '/repositorios');
 		await asentar(2);
 
 		const conmutador = vista.get('[role="switch"][aria-label="origen.aur"]');
@@ -172,7 +172,7 @@ describe('dónde está el interruptor', () => {
 		responder('repositorios', []);
 		responder('ajustes', { aur: false });
 		responder('guardar_aur', { aur: true });
-		const { vista } = await montarVista(RepositoriosView, '/repositorios');
+		const { vista } = await montarVista(RepositoriesView, '/repositorios');
 		await asentar();
 
 		await vista.get('[role="switch"][aria-label="origen.aur"]').trigger('click');
@@ -194,7 +194,7 @@ describe('los repositorios de la lista', () => {
 			unRepositorio({ nombre: 'core', protegido: true }),
 			unRepositorio(),
 		]);
-		const { vista } = await montarVista(RepositoriosView, '/repositorios');
+		const { vista } = await montarVista(RepositoriesView, '/repositorios');
 		await asentar();
 
 		const core = vista.get('[role="switch"][aria-label="core"]');
@@ -210,7 +210,7 @@ describe('los repositorios de la lista', () => {
 		// el archivo — que es lo que van a usar pacman y la búsqueda.
 		responder('ajustes', { aur: false });
 		responder('repositorios', [unRepositorio()]);
-		const { vista } = await montarVista(RepositoriosView, '/repositorios');
+		const { vista } = await montarVista(RepositoriesView, '/repositorios');
 		await asentar();
 		const leidasAlAbrir = pedidos('repositorios').length;
 
@@ -231,7 +231,7 @@ describe('qué hace el ajuste en la portada', () => {
 		responder('buscar', { resultados: [], total: 0 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
 
-		await montarVista(DescubrirView, '/descubrir?q=krita');
+		await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
 		expect(pedidos('buscar')[0]?.argumentos.incluirAur).toBe(true);
@@ -242,7 +242,7 @@ describe('qué hace el ajuste en la portada', () => {
 		responder('buscar', { resultados: [], total: 0 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
 
-		await montarVista(DescubrirView, '/descubrir?q=krita');
+		await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
 		expect(pedidos('buscar')[0]?.argumentos.incluirAur).toBe(false);
@@ -257,7 +257,7 @@ describe('qué hace el ajuste en la portada', () => {
 		responder('buscar', { resultados: [], total: 0 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
 
-		await montarVista(DescubrirView, '/descubrir?q=krita');
+		await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
 		expect(pedidos('buscar')).toHaveLength(1);
@@ -270,7 +270,7 @@ describe('qué hace el ajuste en la portada', () => {
 		responder('guardar_aur', { aur: true });
 		responder('buscar', { resultados: [], total: 0 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
-		await montarVista(DescubrirView, '/descubrir?q=krita');
+		await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 		expect(pedidos('buscar')).toHaveLength(1);
 

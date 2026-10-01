@@ -10,7 +10,7 @@
 
 import { describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
-import TarjetaGrande from '@/components/tienda/TarjetaGrande.vue';
+import FeaturedCard from '@/components/store/FeaturedCard.vue';
 import { unaApp } from './ejemplos';
 
 describe('abrir la ficha', () => {
@@ -18,7 +18,7 @@ describe('abrir la ficha', () => {
 		// El botón en la tarjeta ahorra entrar a la ficha; si además entrara, no
 		// ahorraría nada y encima dejaría a la persona en otra pantalla mientras
 		// arranca la instalación.
-		const tarjeta = mount(TarjetaGrande, { props: { app: unaApp() } });
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
 
 		await tarjeta.get('button').trigger('click');
 
@@ -27,7 +27,7 @@ describe('abrir la ficha', () => {
 	});
 
 	test('el Enter en el botón tampoco', async () => {
-		const tarjeta = mount(TarjetaGrande, { props: { app: unaApp() } });
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
 
 		await tarjeta.get('button').trigger('keydown.enter');
 
@@ -37,7 +37,7 @@ describe('abrir la ficha', () => {
 	test('el clic en la tarjeta sí', async () => {
 		// El control de los dos de arriba: si la tarjeta no abriera nunca, los
 		// dos pasarían igual y no estarían comprobando nada.
-		const tarjeta = mount(TarjetaGrande, { props: { app: unaApp() } });
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
 
 		await tarjeta.get('article').trigger('click');
 
@@ -47,7 +47,7 @@ describe('abrir la ficha', () => {
 	test('y el teclado sobre la tarjeta también', async () => {
 		// Sin esto no hay forma de abrir una aplicación sin ratón: la tarjeta es
 		// un `article`, que no recibe foco ni se activa solo.
-		const tarjeta = mount(TarjetaGrande, { props: { app: unaApp() } });
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp() } });
 		const articulo = tarjeta.get('article');
 
 		expect(articulo.attributes('tabindex')).toBe('0');
@@ -63,7 +63,7 @@ describe('abrir la ficha', () => {
 		// El control de la receta vive en la ficha, así que el botón de la tarjeta
 		// lleva ahí. Que el hijo emita `receta` no alcanza: lo que importa es en
 		// qué lo convierte la tarjeta.
-		const tarjeta = mount(TarjetaGrande, {
+		const tarjeta = mount(FeaturedCard, {
 			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }) },
 		});
 
@@ -74,7 +74,7 @@ describe('abrir la ficha', () => {
 	});
 
 	test('lo que tiene versión nueva sube como actualizar', async () => {
-		const tarjeta = mount(TarjetaGrande, {
+		const tarjeta = mount(FeaturedCard, {
 			props: { app: unaApp({ instalada: true, actualizable: '5.3.0-1' }) },
 		});
 
@@ -90,7 +90,7 @@ describe('la portada de la tarjeta', () => {
 		// La política de contenido no deja cargar rutas del disco: sin pasar por
 		// el protocolo de Tauri, la imagen queda rota y la fila destacada se ve
 		// como una lista cualquiera.
-		const tarjeta = mount(TarjetaGrande, {
+		const tarjeta = mount(FeaturedCard, {
 			props: { app: unaApp({ captura: '/var/cache/tienda/krita.png' }), conCaptura: true },
 		});
 
@@ -102,7 +102,7 @@ describe('la portada de la tarjeta', () => {
 	test('sin captura no queda una imagen rota', async () => {
 		// Un `img` con `src` vacío es un ícono de imagen fallada; el degradado
 		// solo alcanza para que la fila se vea destacada.
-		const tarjeta = mount(TarjetaGrande, { props: { app: unaApp(), conCaptura: true } });
+		const tarjeta = mount(FeaturedCard, { props: { app: unaApp(), conCaptura: true } });
 
 		expect(tarjeta.find('img').exists()).toBe(false);
 	});

@@ -59,7 +59,7 @@ describe('los controles vienen de la librería', () => {
 	test('y el buscador de la tienda es el compartido', () => {
 		// Con el rebote que esta aplicación necesita —cada búsqueda recorre
 		// quince mil paquetes y consulta al AUR— pero que ya no se escribe acá.
-		const descubrir = pantallas.find(({ ruta }) => ruta.endsWith('DescubrirView.vue'));
+		const descubrir = pantallas.find(({ ruta }) => ruta.endsWith('DiscoverView.vue'));
 		expect(descubrir?.texto).toContain('<SearchField');
 		expect(descubrir?.texto).toContain('debounce');
 	});

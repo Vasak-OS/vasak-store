@@ -18,7 +18,7 @@
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
-import ModalBase from '@/components/ui/ModalBase.vue';
+import AppDialog from '@/components/ui/AppDialog.vue';
 import type { Captura } from '@/tools/api';
 
 const props = defineProps<{ capturas: Captura[] }>();
@@ -115,7 +115,7 @@ onBeforeUnmount(() => observador?.disconnect());
       ›
     </button>
 
-    <ModalBase
+    <AppDialog
       :abierto="ampliada !== null"
       :titulo="ampliada?.titulo || t('detalle.capturas')"
       @cerrar="ampliada = null">
@@ -124,6 +124,6 @@ onBeforeUnmount(() => observador?.disconnect());
         :src="convertFileSrc(ampliada.ruta)"
         :alt="ampliada.titulo"
         class="mx-auto max-h-[70vh] w-auto rounded-corner">
-    </ModalBase>
+    </AppDialog>
   </div>
 </template>

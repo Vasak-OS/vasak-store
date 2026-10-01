@@ -14,7 +14,7 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { useOperaciones } from '@/stores/operaciones';
-import ActualizacionesView from '@/views/ActualizacionesView.vue';
+import UpdatesView from '@/views/UpdatesView.vue';
 import { emitir, olvidarTodo, pedidos, responder } from './dobles';
 import { unaApp } from './ejemplos';
 import { asentar, desmontarTodo, montarVista } from './montar';
@@ -24,7 +24,7 @@ async function laPantalla(pendientes = [unaApp({ instalada: true, actualizable: 
 	responder('actualizaciones', pendientes);
 	responder('sincronizar', 'op-sync');
 	responder('actualizar_todo', 'op-all');
-	const montada = await montarVista(ActualizacionesView, '/actualizaciones');
+	const montada = await montarVista(UpdatesView, '/actualizaciones');
 	// Los avisos del demonio los engancha `App.vue` al arrancar, no la pantalla.
 	// Montada sola, sin esto no le llega ninguno y el aviso de «terminada» no
 	// despierta a nadie.
@@ -112,7 +112,7 @@ describe('la lista', () => {
 			throw new Error('el demonio no contesta');
 		});
 		responder('sincronizar', 'op-sync');
-		const { vista } = await montarVista(ActualizacionesView, '/actualizaciones');
+		const { vista } = await montarVista(UpdatesView, '/actualizaciones');
 		await asentar();
 
 		expect(vista.text()).toContain('el demonio no contesta');

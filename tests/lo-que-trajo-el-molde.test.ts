@@ -5,7 +5,7 @@
  * tema. `ThemeIcon` hace lo mismo con una memoria compartida por nombre y tipo,
  * el pedido en vuelo compartido, y **un solo** oyente para toda la ventana.
  *
- * Acá había una vuelta más: `IconoDeApp` **no puede** ser `ThemeIcon`, porque
+ * Acá había una vuelta más: `AppIcon` **no puede** ser `ThemeIcon`, porque
  * prueba una lista de nombres candidatos en orden —los temas no se ponen de
  * acuerdo entre el `Icon=` del `.desktop`, el identificador de AppStream y el
  * nombre del paquete— y si ninguno está cae a un archivo del catálogo. Lo único
@@ -34,7 +34,7 @@ describe('el composable de iconos del molde', () => {
 		// Sin esto las de abajo pasan sobre una lista vacía, que es en lo que
 		// quedan si el patrón deja de encontrar archivos. Una guardia que se
 		// apaga sola dice que sí.
-		expect(fuentes).toContain('components/tienda/IconoDeApp.vue');
+		expect(fuentes).toContain('components/store/AppIcon.vue');
 		expect(fuentes.length).toBeGreaterThan(10);
 	});
 
@@ -44,7 +44,7 @@ describe('el composable de iconos del molde', () => {
 
 	test('y nadie escucha el cambio de tema por su cuenta', async () => {
 		// Ésta es la forma de la copia. Que nadie llame a `getIconSource` sería
-		// demasiado: `IconoDeApp` lo hace y tiene que hacerlo, porque prueba
+		// demasiado: `AppIcon` lo hace y tiene que hacerlo, porque prueba
 		// varios nombres. Lo que no puede volver es el oyente propio.
 		const culpables: string[] = [];
 		for (const ruta of fuentes) {

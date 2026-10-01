@@ -12,9 +12,9 @@
  */
 import { convertFileSrc } from '@tauri-apps/api/core';
 import { computed } from 'vue';
-import BotonInstalar from '@/components/tienda/BotonInstalar.vue';
-import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
-import InsigniaDeOrigen from '@/components/tienda/InsigniaDeOrigen.vue';
+import InstallButton from '@/components/store/InstallButton.vue';
+import AppIcon from '@/components/store/AppIcon.vue';
+import OriginBadge from '@/components/store/OriginBadge.vue';
 import type { Tarjeta } from '@/tools/api';
 
 const props = withDefaults(
@@ -50,16 +50,16 @@ const captura = computed(() =>
     </div>
 
     <div class="flex items-start gap-3 p-3">
-      <IconoDeApp :icono="app.icono" :tamano="56" />
+      <AppIcon :icono="app.icono" :tamano="56" />
       <div class="flex min-w-0 flex-1 flex-col gap-1">
         <div class="flex items-center gap-2">
           <h3 class="truncate font-semibold text-sm">{{ app.titulo }}</h3>
-          <InsigniaDeOrigen :origen="app.origen" :repositorio="app.repositorio" />
+          <OriginBadge :origen="app.origen" :repositorio="app.repositorio" />
         </div>
         <p class="line-clamp-2 text-tx-muted text-xs leading-snug">{{ app.resumen }}</p>
       </div>
       <!-- Lo del AUR abre la ficha: el control de la receta vive ahí. -->
-      <BotonInstalar
+      <InstallButton
         :app="app"
         :ocupado="ocupado"
         :en-cola="enCola"

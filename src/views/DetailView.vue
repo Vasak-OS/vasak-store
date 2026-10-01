@@ -11,13 +11,13 @@ import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { EmptyState } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import CarruselDeCapturas from '@/components/tienda/CarruselDeCapturas.vue';
-import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
-import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
-import InsigniaDeOrigen from '@/components/tienda/InsigniaDeOrigen.vue';
+import ScreenshotCarousel from '@/components/store/ScreenshotCarousel.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
+import AppIcon from '@/components/store/AppIcon.vue';
+import OriginBadge from '@/components/store/OriginBadge.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
-import ModalBase from '@/components/ui/ModalBase.vue';
+import AppDialog from '@/components/ui/AppDialog.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { type Detalle, detalle as pedirDetalle, recetaDelAur } from '@/tools/api';
 import { bytes, fecha } from '@/tools/formato';
@@ -147,11 +147,11 @@ watch(
         <BotonAccion class="mb-4" @click="router.back()">{{ t('comun.volver') }}</BotonAccion>
 
         <div class="flex flex-wrap items-start gap-5">
-          <IconoDeApp :icono="app.icono" :tamano="96" />
+          <AppIcon :icono="app.icono" :tamano="96" />
           <div class="flex min-w-0 flex-1 flex-col gap-2">
             <div class="flex flex-wrap items-center gap-3">
               <h1 class="font-semibold text-2xl">{{ app.titulo }}</h1>
-              <InsigniaDeOrigen :origen="app.origen" :repositorio="app.repositorio" />
+              <OriginBadge :origen="app.origen" :repositorio="app.repositorio" />
             </div>
             <p class="text-base text-tx-muted leading-snug">{{ app.resumen }}</p>
             <p v-if="app.autor" class="text-tx-muted text-xs">{{ app.autor }}</p>
@@ -207,7 +207,7 @@ watch(
 
         <section v-if="app.capturas.length > 0" class="flex flex-col gap-2">
           <h2 class="font-semibold text-sm">{{ t('detalle.capturas') }}</h2>
-          <CarruselDeCapturas :capturas="app.capturas" />
+          <ScreenshotCarousel :capturas="app.capturas" />
         </section>
         <p v-else-if="!delAur" class="text-tx-muted text-xs">{{ t('detalle.sinCapturas') }}</p>
 
@@ -243,7 +243,7 @@ watch(
       </div>
     </template>
 
-    <ModalBase :abierto="viendoReceta" :titulo="t('detalle.receta')" @cerrar="viendoReceta = false">
+    <AppDialog :abierto="viendoReceta" :titulo="t('detalle.receta')" @cerrar="viendoReceta = false">
       <p class="mb-3 text-sm text-status-warning leading-relaxed">{{ t('detalle.recetaNota') }}</p>
       <pre class="overflow-auto rounded-corner-sm bg-ui-surface/60 p-3 font-mono text-xs leading-relaxed">{{ receta }}</pre>
       <template #pie>
@@ -252,9 +252,9 @@ watch(
           {{ t('detalle.compilarEInstalar') }}
         </BotonAccion>
       </template>
-    </ModalBase>
+    </AppDialog>
 
-    <DialogoDePrevisualizacion
+    <PreviewDialog
       :abierto="operaciones.preguntando"
       :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"

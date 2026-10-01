@@ -14,8 +14,8 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
-import CarruselDeCapturas from '@/components/tienda/CarruselDeCapturas.vue';
-import DetalleView from '@/views/DetalleView.vue';
+import ScreenshotCarousel from '@/components/store/ScreenshotCarousel.vue';
+import DetailView from '@/views/DetailView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
 import { sinArrastre, unaFicha, unasCapturas } from './ejemplos';
 import { asentar, desmontarTodo, elDialogo, hayDialogo, montarVista, nombreDelDialogo } from './montar';
@@ -29,7 +29,7 @@ const botonAccion = await Bun.file(
 async function abrirLaFicha(ficha = unaFicha(), donde = '/app/repositorio/krita') {
 	responder('detalle', ficha);
 	responder('previsualizar', sinArrastre());
-	const montada = await montarVista(DetalleView, donde);
+	const montada = await montarVista(DetailView, donde);
 	await asentar();
 	return montada;
 }
@@ -251,14 +251,14 @@ describe('las capturas', () => {
 	test('se ven todas a la vez y no de a una', async () => {
 		// Con una sola a la vista, que existan más se descubría apretando una
 		// flecha, que es la mitad de para qué están.
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(4) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(4) } });
 
 		expect(carrusel.findAll('figure')).toHaveLength(4);
 	});
 
 	test('las rutas del disco pasan por el protocolo de Tauri', async () => {
 		// La política de contenido no deja cargar rutas del disco crudas.
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(1) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(1) } });
 
 		const fuente = carrusel.get('figure img').attributes('src') ?? '';
 		expect(fuente).toStartWith('tienda://');
@@ -267,7 +267,7 @@ describe('las capturas', () => {
 	test('una captura se abre en grande', async () => {
 		// Es lo que uno espera de una imagen chica que muestra una pantalla
 		// llena de detalles.
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(3) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(3) } });
 		expect(hayDialogo()).toBe(false);
 
 		await carrusel.findAll('figure button')[1]?.trigger('click');
@@ -276,7 +276,7 @@ describe('las capturas', () => {
 	});
 
 	test('sin capturas no dibuja nada', async () => {
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: [] } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: [] } });
 
 		expect(carrusel.find('figure').exists()).toBe(false);
 	});
@@ -295,7 +295,7 @@ describe('las flechas del carrusel', () => {
 	}
 
 	test('al principio de la tira sólo se puede ir a la derecha', async () => {
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(6) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(6) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 0);
@@ -308,7 +308,7 @@ describe('las flechas del carrusel', () => {
 	});
 
 	test('en el medio se puede ir a los dos lados', async () => {
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(6) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(6) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 400);
@@ -320,7 +320,7 @@ describe('las flechas del carrusel', () => {
 	test('al final no se ofrece seguir a la derecha', async () => {
 		// El margen de cuatro píxeles es para que el redondeo del navegador no
 		// deje la flecha encendida para siempre sobre el final de la tira.
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(6) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(6) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 800);
@@ -333,7 +333,7 @@ describe('las flechas del carrusel', () => {
 	});
 
 	test('si la tira entra entera, no hay flechas', async () => {
-		const carrusel = mount(CarruselDeCapturas, { props: { capturas: unasCapturas(2) } });
+		const carrusel = mount(ScreenshotCarousel, { props: { capturas: unasCapturas(2) } });
 		const tira = carrusel.get('.overflow-x-auto');
 
 		medirLaTira(tira.element as HTMLElement, 0, 400, 400);

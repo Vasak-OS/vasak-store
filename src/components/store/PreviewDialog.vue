@@ -10,7 +10,7 @@
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { computed } from 'vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
-import ModalBase from '@/components/ui/ModalBase.vue';
+import AppDialog from '@/components/ui/AppDialog.vue';
 import type { Previsualizacion } from '@/tools/api';
 import { bytes } from '@/tools/formato';
 
@@ -32,7 +32,7 @@ const grupos = computed(() => {
 const sePuede = computed(() => (props.informe?.conflictos.length ?? 0) === 0);
 </script>
 <template>
-  <ModalBase :abierto="abierto" :titulo="titulo" @cerrar="emit('cerrar')">
+  <AppDialog :abierto="abierto" :titulo="titulo" @cerrar="emit('cerrar')">
     <div v-if="informe" class="flex flex-col gap-4">
       <div v-if="informe.conflictos.length > 0" class="flex flex-col gap-1">
         <p class="font-medium text-sm text-status-error">{{ t('operacion.conflictos') }}</p>
@@ -77,5 +77,5 @@ const sePuede = computed(() => (props.informe?.conflictos.length ?? 0) === 0);
         {{ t('operacion.confirmar') }}
       </BotonAccion>
     </template>
-  </ModalBase>
+  </AppDialog>
 </template>

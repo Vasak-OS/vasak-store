@@ -24,8 +24,8 @@ import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { EmptyState, SearchField, SideBar, type SidebarCategory } from '@vasakgroup/vue-libvasak';
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
-import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
-import TarjetaGrande from '@/components/tienda/TarjetaGrande.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
+import FeaturedCard from '@/components/store/FeaturedCard.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useAjustes } from '@/stores/ajustes';
@@ -247,7 +247,7 @@ watch(
           <div
             class="grid gap-4"
             style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 22rem), 1fr))">
-            <TarjetaGrande
+            <FeaturedCard
               v-for="app in portada.seleccion"
               :key="app.nombre"
               :app="app"
@@ -268,7 +268,7 @@ watch(
           <div
             class="grid gap-3"
             style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr))">
-            <TarjetaGrande
+            <FeaturedCard
               v-for="app in portada.novedades"
               :key="app.nombre"
               :app="app"
@@ -307,7 +307,7 @@ watch(
         <div
           class="grid gap-3"
           style="grid-template-columns: repeat(auto-fill, minmax(min(100%, 20rem), 1fr))">
-          <TarjetaGrande
+          <FeaturedCard
             v-for="app in listado"
             :key="`${app.origen}:${app.nombre}`"
             :app="app"
@@ -324,7 +324,7 @@ watch(
       </p>
     </main>
 
-    <DialogoDePrevisualizacion
+    <PreviewDialog
       :abierto="operaciones.preguntando"
       :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"

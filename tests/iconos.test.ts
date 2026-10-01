@@ -16,7 +16,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { olvidarLosIconosDelTema } from '@vasakgroup/vue-libvasak';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
-import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
+import AppIcon from '@/components/store/AppIcon.vue';
 import { emitir, olvidarTodo, ponerEnElTema } from './dobles';
 
 const lector = await Bun.file(new URL('../src-tauri/src/lector.rs', import.meta.url)).text();
@@ -51,7 +51,7 @@ describe('de dónde sale el ícono', () => {
 		// de tema; el del catálogo es un PNG fijo. Al revés, la tienda se vería
 		// igual con cualquier tema puesto.
 		ponerEnElTema('krita', 'data:image/png;base64,DELTEMA');
-		const icono = mount(IconoDeApp, {
+		const icono = mount(AppIcon, {
 			props: { icono: { tema: ['krita'], archivo: '/var/cache/tienda/krita.png' } },
 		});
 
@@ -65,7 +65,7 @@ describe('de dónde sale el ícono', () => {
 		// el backend manda varios. Quedándose en el primero, lo que no usa ese
 		// nombre no muestra ícono nunca.
 		ponerEnElTema('org.kde.krita', 'data:image/png;base64,ELSEGUNDO');
-		const icono = mount(IconoDeApp, {
+		const icono = mount(AppIcon, {
 			props: { icono: { tema: ['krita', 'org.kde.krita', 'package-x-generic'] } },
 		});
 
@@ -77,7 +77,7 @@ describe('de dónde sale el ícono', () => {
 	test('si el tema no tiene ninguno, cae al archivo y lo pasa por el protocolo', async () => {
 		// La política de contenido no deja cargar rutas del disco: cargada cruda,
 		// la imagen queda rota.
-		const icono = mount(IconoDeApp, {
+		const icono = mount(AppIcon, {
 			props: { icono: { tema: ['krita'], archivo: '/var/cache/tienda/krita.png' } },
 		});
 
@@ -98,7 +98,7 @@ describe('de dónde sale el ícono', () => {
 		// que el archivo nombra el composable pasa igual si alguien saca la
 		// versión del `watch`, que es justo la forma de romperlo. Medido.
 		ponerEnElTema('krita', 'data:image/png;base64,TEMAVIEJO');
-		const icono = mount(IconoDeApp, { props: { icono: { tema: ['krita'] } } });
+		const icono = mount(AppIcon, { props: { icono: { tema: ['krita'] } } });
 		await asentar();
 		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,TEMAVIEJO');
 
@@ -113,7 +113,7 @@ describe('de dónde sale el ícono', () => {
 		// Un `img` con `src` vacío es el ícono de imagen fallada. Y el hueco tiene
 		// que ocupar lo mismo: sin él la tarjeta cambia de ancho cuando la imagen
 		// carga y la lista entera salta.
-		const icono = mount(IconoDeApp, { props: { icono: { tema: [] }, tamano: 56 } });
+		const icono = mount(AppIcon, { props: { icono: { tema: [] }, tamano: 56 } });
 
 		await asentar();
 
@@ -129,7 +129,7 @@ describe('cuándo se vuelve a resolver', () => {
 		// que ocupaba ese lugar antes.
 		ponerEnElTema('krita', 'data:image/png;base64,KRITA');
 		ponerEnElTema('gimp', 'data:image/png;base64,GIMP');
-		const icono = mount(IconoDeApp, { props: { icono: { tema: ['krita'] } } });
+		const icono = mount(AppIcon, { props: { icono: { tema: ['krita'] } } });
 		await asentar();
 		expect(icono.get('img').attributes('src')).toBe('data:image/png;base64,KRITA');
 
@@ -154,7 +154,7 @@ describe('cuándo se vuelve a resolver', () => {
 		);
 		ponerEnElTema('gimp', 'data:image/png;base64,GIMP');
 
-		const icono = mount(IconoDeApp, { props: { icono: { tema: ['krita'] } } });
+		const icono = mount(AppIcon, { props: { icono: { tema: ['krita'] } } });
 		await nextTick();
 		await icono.setProps({ icono: { tema: ['gimp'] } });
 		await asentar();

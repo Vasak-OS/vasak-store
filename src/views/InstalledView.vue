@@ -12,9 +12,9 @@ import { getCurrentWebview } from '@tauri-apps/api/webview';
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { EmptyState, SearchField, SwitchToggle } from '@vasakgroup/vue-libvasak';
 import { onMounted, onUnmounted, ref, watch } from 'vue';
-import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
-import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
-import RejillaDeApps from '@/components/tienda/RejillaDeApps.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
+import AppIcon from '@/components/store/AppIcon.vue';
+import AppGrid from '@/components/store/AppGrid.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useOperaciones } from '@/stores/operaciones';
@@ -148,7 +148,7 @@ watch(
           v-for="portable in portables"
           :key="portable.ruta"
           class="flex flex-wrap items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-2">
-          <IconoDeApp :icono="{ tema: ['application-x-executable'] }" :tamano="28" />
+          <AppIcon :icono="{ tema: ['application-x-executable'] }" :tamano="28" />
           <span class="flex min-w-0 flex-1 flex-col">
             <span class="truncate text-sm">{{ portable.titulo }}</span>
             <span class="truncate text-tx-muted text-xs" :title="portable.ruta">
@@ -188,9 +188,9 @@ watch(
       <BotonAccion @click="cargar">{{ t('comun.reintentar') }}</BotonAccion>
     </EmptyState>
     <EmptyState v-else-if="lista.length === 0" :title="t('instaladas.vacio')" />
-    <RejillaDeApps v-else :apps="lista" />
+    <AppGrid v-else :apps="lista" />
 
-    <DialogoDePrevisualizacion
+    <PreviewDialog
       :abierto="operaciones.preguntando"
       :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"

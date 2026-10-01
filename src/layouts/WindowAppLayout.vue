@@ -24,8 +24,8 @@
  * contenido centrado, que es exactamente lo que hacía la barra propia.
  */
 import { WindowFrame } from '@vasakgroup/vue-libvasak';
-import LogoDeLaTienda from '@/components/barra/LogoDeLaTienda.vue';
-import SelectorDeSeccion from '@/components/barra/SelectorDeSeccion.vue';
+import StoreLogo from '@/components/bar/StoreLogo.vue';
+import SectionSwitcher from '@/components/bar/SectionSwitcher.vue';
 import { useTienda } from '@/stores/tienda';
 
 const tienda = useTienda();
@@ -34,12 +34,12 @@ const tienda = useTienda();
 <template>
   <WindowFrame>
     <template #identidad>
-      <LogoDeLaTienda />
+      <StoreLogo />
     </template>
 
     <template #barra>
       <div class="flex min-w-0 flex-1 items-center justify-center" data-tauri-drag-region>
-        <SelectorDeSeccion :pendientes="tienda.pendientes" />
+        <SectionSwitcher :pendientes="tienda.pendientes" />
       </div>
     </template>
 

@@ -17,7 +17,7 @@
 import { beforeEach, describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
 import { defineComponent, h, type PropType } from 'vue';
-import BotonInstalar from '@/components/tienda/BotonInstalar.vue';
+import InstallButton from '@/components/store/InstallButton.vue';
 import type { Tarjeta } from '@/tools/api';
 import { unaApp } from './ejemplos';
 
@@ -42,7 +42,7 @@ const Anfitrion = defineComponent({
 		};
 		return () =>
 			h('div', { onClick: contar, onKeydown: contar }, [
-				h(BotonInstalar, { app: props.app, ocupado: props.ocupado, enCola: props.enCola }),
+				h(InstallButton, { app: props.app, ocupado: props.ocupado, enCola: props.enCola }),
 			]);
 	},
 });
@@ -58,7 +58,7 @@ describe('lo que emite', () => {
 		// control vive en la ficha. Un botón «Instalar» acá lo saltearía —o, peor,
 		// fallaría con «no hay ningún paquete llamado X», porque el servicio sólo
 		// instala de los repositorios—.
-		const boton = mount(BotonInstalar, {
+		const boton = mount(InstallButton, {
 			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }), ocupado: false },
 		});
 
@@ -70,7 +70,7 @@ describe('lo que emite', () => {
 	});
 
 	test('lo de los repositorios instala', async () => {
-		const boton = mount(BotonInstalar, { props: { app: unaApp(), ocupado: false } });
+		const boton = mount(InstallButton, { props: { app: unaApp(), ocupado: false } });
 
 		await boton.get('button').trigger('click');
 
@@ -79,7 +79,7 @@ describe('lo que emite', () => {
 	});
 
 	test('lo que tiene versión nueva actualiza, no instala de nuevo', async () => {
-		const boton = mount(BotonInstalar, {
+		const boton = mount(InstallButton, {
 			props: { app: unaApp({ instalada: true, actualizable: '5.3.0-1' }), ocupado: false },
 		});
 
@@ -92,7 +92,7 @@ describe('lo que emite', () => {
 
 	test('lo instalado y al día no emite nada', async () => {
 		// Informa, no ofrece. Emitir acá mandaba a reinstalar algo que ya estaba.
-		const boton = mount(BotonInstalar, {
+		const boton = mount(InstallButton, {
 			props: { app: unaApp({ instalada: true }), ocupado: false },
 		});
 
@@ -109,7 +109,7 @@ describe('cuándo se apaga', () => {
 		// mientras algo corre espera en vez de fallar. Si el botón siguiera
 		// ofreciendo «Instalar», apretarlo otra vez no haría nada visible y la
 		// única lectura posible sería que la tienda se colgó.
-		const boton = mount(BotonInstalar, {
+		const boton = mount(InstallButton, {
 			props: { app: unaApp(), ocupado: true, enCola: true },
 		});
 
@@ -121,14 +121,14 @@ describe('cuándo se apaga', () => {
 	});
 
 	test('con una operación en curso, aunque el paquete no esté en la cola', async () => {
-		const boton = mount(BotonInstalar, { props: { app: unaApp(), ocupado: true } });
+		const boton = mount(InstallButton, { props: { app: unaApp(), ocupado: true } });
 
 		expect((boton.get('button').element as HTMLButtonElement).disabled).toBe(true);
 	});
 
 	test('pero el de la receta no: leerla no toca nada', async () => {
 		// Es el único que sigue vivo con algo corriendo, porque no pide el candado.
-		const boton = mount(BotonInstalar, {
+		const boton = mount(InstallButton, {
 			props: { app: unaApp({ origen: 'aur', repositorio: 'aur' }), ocupado: true },
 		});
 

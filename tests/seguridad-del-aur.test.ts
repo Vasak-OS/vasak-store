@@ -17,10 +17,10 @@
 
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import { mount } from '@vue/test-utils';
-import InsigniaDeOrigen from '@/components/tienda/InsigniaDeOrigen.vue';
+import OriginBadge from '@/components/store/OriginBadge.vue';
 import type { Tarjeta } from '@/tools/api';
-import DescubrirView from '@/views/DescubrirView.vue';
-import DetalleView from '@/views/DetalleView.vue';
+import DiscoverView from '@/views/DiscoverView.vue';
+import DetailView from '@/views/DetailView.vue';
 import { olvidarTodo, pedidos, responder } from './dobles';
 import { sinArrastre, unaApp, unaFicha } from './ejemplos';
 import { asentar, desmontarTodo, elDialogo, hayDialogo, montarVista } from './montar';
@@ -39,7 +39,7 @@ async function laFichaDeYay(receta = 'pkgname=yay\nbuild() { go build; }') {
 	responder('receta_del_aur', receta);
 	responder('instalar_del_aur', 'op-9');
 	responder('previsualizar', sinArrastre());
-	const montada = await montarVista(DetalleView, '/app/aur/yay');
+	const montada = await montarVista(DetailView, '/app/aur/yay');
 	await asentar();
 	return montada;
 }
@@ -59,8 +59,8 @@ describe('la insignia', () => {
 	test('la del AUR se distingue por color y no sólo por texto', () => {
 		// Una insignia que se distinga sólo por un tono de gris no comunica «la
 		// distribución trata esto como inseguro».
-		const aur = mount(InsigniaDeOrigen, { props: { origen: 'aur', repositorio: 'aur' } });
-		const repositorio = mount(InsigniaDeOrigen, {
+		const aur = mount(OriginBadge, { props: { origen: 'aur', repositorio: 'aur' } });
+		const repositorio = mount(OriginBadge, {
 			props: { origen: 'repositorio', repositorio: 'extra' },
 		});
 
@@ -69,7 +69,7 @@ describe('la insignia', () => {
 	});
 
 	test('y explica qué significa al pasar por encima', () => {
-		const aur = mount(InsigniaDeOrigen, { props: { origen: 'aur', repositorio: 'aur' } });
+		const aur = mount(OriginBadge, { props: { origen: 'aur', repositorio: 'aur' } });
 
 		expect(aur.get('span').attributes('title')).toBe('origen.aurNota');
 		expect(aur.text()).toBe('origen.aur');
@@ -78,7 +78,7 @@ describe('la insignia', () => {
 	test('la de un repositorio dice cuál, que es lo que lo distingue', () => {
 		// «Repositorio» a secas no dice nada: `extra` y el de VasakOS no son lo
 		// mismo para quien decide si instalar algo.
-		const insignia = mount(InsigniaDeOrigen, {
+		const insignia = mount(OriginBadge, {
 			props: { origen: 'repositorio', repositorio: 'vasakos' },
 		});
 
@@ -95,7 +95,7 @@ describe('desde una lista de resultados', () => {
 		responder('ajustes', { aur: true });
 		responder('buscar', { resultados: [unaApp(delAur())], total: 1 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
-		const { vista, router } = await montarVista(DescubrirView, '/descubrir?q=yay');
+		const { vista, router } = await montarVista(DiscoverView, '/descubrir?q=yay');
 		await asentar();
 
 		const boton = vista.get('article button');
@@ -115,7 +115,7 @@ describe('desde una lista de resultados', () => {
 		responder('buscar', { resultados: [unaApp()], total: 1 });
 		responder('descubrir', { seleccion: [], novedades: [], categorias: [] });
 		responder('previsualizar', sinArrastre());
-		const { vista } = await montarVista(DescubrirView, '/descubrir?q=krita');
+		const { vista } = await montarVista(DiscoverView, '/descubrir?q=krita');
 		await asentar();
 
 		await vista.get('article button').trigger('click');
@@ -202,7 +202,7 @@ describe('en la ficha', () => {
 		responder('receta_del_aur', () => {
 			throw new Error('no se pudo contactar al AUR');
 		});
-		const { vista } = await montarVista(DetalleView, '/app/aur/yay');
+		const { vista } = await montarVista(DetailView, '/app/aur/yay');
 		await asentar();
 
 		await elBotonPrincipal(vista).trigger('click');

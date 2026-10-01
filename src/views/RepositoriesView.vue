@@ -11,7 +11,7 @@ import { EmptyState, SwitchToggle, TextInput } from '@vasakgroup/vue-libvasak';
 import { onMounted, ref } from 'vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
-import ModalBase from '@/components/ui/ModalBase.vue';
+import AppDialog from '@/components/ui/AppDialog.vue';
 import { useAjustes } from '@/stores/ajustes';
 import {
 	agregarRepositorio,
@@ -182,7 +182,7 @@ onMounted(async () => {
       </li>
     </ul>
 
-    <ModalBase :abierto="agregando" :titulo="t('repositorios.agregar')" @cerrar="agregando = false">
+    <AppDialog :abierto="agregando" :titulo="t('repositorios.agregar')" @cerrar="agregando = false">
       <form ref="formulario" class="flex flex-col gap-3" @submit.prevent="agregar">
         <label class="flex flex-col gap-1 text-sm">
           {{ t('repositorios.nombre') }}
@@ -210,6 +210,6 @@ onMounted(async () => {
              en vez de mandar un formulario vacío al servicio. -->
         <BotonAccion tono="principal" @click="enviar">{{ t('comun.aceptar') }}</BotonAccion>
       </template>
-    </ModalBase>
+    </AppDialog>
   </div>
 </template>

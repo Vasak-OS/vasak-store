@@ -10,8 +10,8 @@
 import { useI18n } from '@vasakgroup/tauri-plugin-i18n';
 import { EmptyState } from '@vasakgroup/vue-libvasak';
 import { onMounted, ref, watch } from 'vue';
-import DialogoDePrevisualizacion from '@/components/tienda/DialogoDePrevisualizacion.vue';
-import IconoDeApp from '@/components/tienda/IconoDeApp.vue';
+import PreviewDialog from '@/components/store/PreviewDialog.vue';
+import AppIcon from '@/components/store/AppIcon.vue';
 import BotonAccion from '@/components/ui/BotonAccion.vue';
 import IndicadorDeCarga from '@/components/ui/IndicadorDeCarga.vue';
 import { useOperaciones } from '@/stores/operaciones';
@@ -102,7 +102,7 @@ watch(
         v-for="app in lista"
         :key="app.nombre"
         class="flex items-center gap-3 rounded-corner border border-ui-border bg-ui-surface/70 p-3">
-        <IconoDeApp :icono="app.icono" :tamano="32" />
+        <AppIcon :icono="app.icono" :tamano="32" />
         <span class="flex min-w-0 flex-1 flex-col">
           <span class="truncate font-medium text-sm">{{ app.titulo }}</span>
           <span class="text-tx-muted text-xs">
@@ -118,7 +118,7 @@ watch(
       </li>
     </ul>
 
-    <DialogoDePrevisualizacion
+    <PreviewDialog
       :abierto="operaciones.preguntando"
       :informe="operaciones.informe"
       :titulo="t('operacion.previsualizacion')"

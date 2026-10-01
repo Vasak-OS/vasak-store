@@ -20,7 +20,7 @@
  * de comprobarlos, así que `data-tauri-drag-region` llega al chequeo como
  * `dataTauriDragRegion` y no coincide con este patrón. Declarar lo mismo en
  * `ComponentCustomProps` **no sirve** —se probó—. Para ponerle un `data-*` a un
- * componente hay que pasarlo por `v-bind`, como hace `LogoDeLaTienda`, que lo
+ * componente hay que pasarlo por `v-bind`, como hace `StoreLogo`, que lo
  * explica ahí.
  */
 declare module 'vue' {
