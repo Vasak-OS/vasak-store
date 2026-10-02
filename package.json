@@ -1,7 +1,7 @@
 {
   "name": "vasak-store",
   "private": true,
-  "version": "0.9.0",
+  "version": "0.9.1",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
@@ -32,14 +32,14 @@
     "@happy-dom/global-registrator": "^20.14.5",
     "@tauri-apps/cli": "^2.12.1",
     "@types/bun": "^1.4.2",
-    "@types/node": "^26.6.3",
+    "@types/node": "^26.6.4",
     "@vitejs/plugin-vue": "^6.0.9",
     "@vue/test-utils": "^2.5.1",
     "happy-dom": "^20.14.5",
     "tailwindcss": "^4.3.3",
     "typescript": "^5.9.3",
     "vite": "^7.3.6",
-    "vue-tsc": "^3.3.11"
+    "vue-tsc": "3.3.11"
   },
   "vasak": {
     "bibliotecasAtrasadas": {
@@ -47,6 +47,7 @@
       "vue-router": "La 5 es un salto mayor del enrutador, y lo que hay que verificar —que cada vista de la tienda cargue y que volver atrás funcione— no lo dice ninguna prueba automática. Va en su propio PR, probado en sesión con `--features custom-protocol`. Se saca con ese PR.",
       "typescript": "La 7 (el compilador reescrito) no trae `typescript/lib/tsc` y vue-tsc 3.3 lo busca ahí: `bun run build` se cae antes de mirar un archivo. Se saca cuando vue-tsc publique una versión que soporte TypeScript 7.",
       "vite": "La 8 cambia rollup por rolldown: es cambiar cómo se empaqueta la ventana y eso no lo verifica ninguna prueba. Va en su propio PR, que abra la tienda en una sesión con `--features custom-protocol`. Se saca con ese PR.",
+      "vue-tsc": "La 3.3.12 pierde el nombre de un slot con alcance: en `RepositoriesView.vue` el segundo `<template #default=\"{ id }\">` de `FormGroup` da «Cannot find name 'id'» (TS2304) y el typecheck se cae; con la 3.3.11 pasa limpio. Va fija en `3.3.11` —sin acento: la que se evita es un parche, y `~` también la alcanza— para que `bun update` no la vuelva a traer. Se saca cuando una versión nueva pase `vue-tsc --noEmit` sin tocar la vista.",
       "gtk (crate de Rust)": "Va atado a la 0.18 que usan tauri y webkit2gtk: una versión distinta metería una segunda copia de los enlaces a GTK. Se saca cuando tauri suba de gtk-rs."
     }
   }
