@@ -38,6 +38,7 @@ import {
 } from '@vasakgroup/vue-libvasak';
 import { computed, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
+import { pickSectionShape, type SectionShape } from '@/components/bar/section-shape';
 import { useElementWidth } from '@/composables/useElementWidth';
 
 const { t } = useI18n();
@@ -106,15 +107,10 @@ const available = useElementWidth(root);
 const labelsWidth = useElementWidth(labelsProbe);
 const iconsWidth = useElementWidth(iconsProbe);
 
-/**
- * La forma que entra. Sin medidas —antes de maquetar, o en una prueba sin
- * maquetación— va la de siempre: es la que corresponde al ancho habitual.
- */
-const shape = computed<'labels' | 'icons' | 'menu'>(() => {
-	const room = available.value;
-	if (room === 0 || labelsWidth.value === 0 || room >= labelsWidth.value) return 'labels';
-	return room >= iconsWidth.value ? 'icons' : 'menu';
-});
+/** La forma que entra, con el criterio de `section-shape.ts`. */
+const shape = computed<SectionShape>(() =>
+	pickSectionShape(available.value, labelsWidth.value, iconsWidth.value)
+);
 
 const activeLabel = computed(() => t(`secciones.${active.value ?? 'descubrir'}`));
 
@@ -129,8 +125,13 @@ const compact = computed(() => available.value > 0 && available.value < COMPACT_
 <template>
   <div ref="root" class="relative flex w-full min-w-0 justify-center" :data-shape="shape">
     <!-- Las dos copias que miden. Invisibles e inertes: no se ven, no se
-         recorren con el teclado y un lector de pantalla no las lee. -->
-    <div aria-hidden="true" inert class="pointer-events-none invisible absolute top-0 left-0 flex w-max flex-col">
+         recorren con el teclado y un lector de pantalla no las lee. Y van en
+         una caja de 0×0 que recorta: `invisible` y `absolute` no las sacan del
+         desborde, y la barra de `AppBar` es `overflow-auto`, así que las dos
+         copias apiladas le daban scroll siempre —el doble de alto— y la de los
+         nombres, además, scroll de costado en cuanto no entraba. Recortadas
+         miden lo mismo: cada una es `w-max` y no depende de su caja. -->
+    <div aria-hidden="true" inert class="pointer-events-none invisible absolute top-0 left-0 flex size-0 flex-col overflow-hidden">
       <div ref="labelsProbe" class="w-max"><SegmentedControl :model-value="active" :options="withLabels" label="" /></div>
       <div ref="iconsProbe" class="w-max"><SegmentedControl :model-value="active" :options="withIcons" label="" /></div>
     </div>

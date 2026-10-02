@@ -12,8 +12,11 @@
  * Es la `ProgressBar` de la librería, y el registro, su `CodeBlock` de
  * registro, que se sigue solo mientras quien lo lee esté al final.
  *
- * La franja es opaca: tenía `backdrop-blur`, y una superficie de la ventana no
- * ve nada detrás que desenfocar (decisión 8, regla 9).
+ * La franja es translúcida y sin `backdrop-blur`: la ventana deja ver el
+ * escritorio y el desenfoque lo pone Wayfire, así que opaca lo anulaba. Va en
+ * `bg-ui-surface/70`, el mismo material que el resto de lo que se apoya en la
+ * ventana (memorias `superficies-translucidas-blur-de-wayfire` y
+ * `tokens-de-fondo`).
  *
  * En una ventana angosta la fila se parte: el texto conserva un ancho mínimo y
  * los botones bajan a la línea siguiente en vez de comerse el título.
@@ -67,7 +70,7 @@ watch(
 <template>
   <div
     v-if="visible"
-    class="shrink-0 border-ui-border border-t bg-ui-surface"
+    class="shrink-0 border-ui-border border-t bg-ui-surface/70"
     role="status"
     aria-live="polite">
     <div class="flex flex-wrap items-center gap-3 px-4 py-2">
