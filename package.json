@@ -1,7 +1,7 @@
 {
   "name": "vasak-store",
   "private": true,
-  "version": "0.9.1",
+  "version": "0.9.2",
   "type": "module",
   "scripts": {
     "dev": "bunx --bun vite",
@@ -22,7 +22,7 @@
     "@vasakgroup/plugin-vsk-contextual-menu": "^2.0.2",
     "@vasakgroup/plugin-vsk-journal": "^2.0.0",
     "@vasakgroup/tauri-plugin-i18n": "^2.3.0",
-    "@vasakgroup/vue-libvasak": "^2.2.0",
+    "@vasakgroup/vue-libvasak": "^2.3.0",
     "pinia": "^3.0.4",
     "vue": "^3.5.43",
     "vue-router": "^4.6.4"
