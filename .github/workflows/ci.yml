@@ -34,3 +34,16 @@ jobs:
       # verde. Ahora que la comprobación existe (Vasak-OS/.github#7), se
       # enciende acá.
       candado_corta: true
+      # Las pruebas de Rust corren en `revisar` y de esa misma corrida sale la
+      # cobertura que se le pasa a Sonar. Sin esto las pruebas no corrían en
+      # ningún PR, y un PR que sólo toca Rust pasaba la puerta sin medir nada
+      # (Vasak-OS/.github#25).
+      # Sólo el protocolo: el daemon y la aplicación enlazan `libalpm`, que no
+      # existe en el runner de Ubuntu. Se prueba lo que compila ahí, sin
+      # contenedor de Arch (decisión del 12/10/2026 en Vasak-OS/.github#25).
+      pruebas_rust: -p vasak-store-protocol
+      # Lo que pide el grafo en Linux, mirado con `cargo tree -i`:
+      #
+      #   build-essential  el compilador de C de los `-sys`
+      paquetes_rust: >-
+        build-essential
