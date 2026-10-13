@@ -1,104 +1,370 @@
-# vasak-store
+# Vasak store
 
-La tienda de aplicaciones de VasakOS. Instala, saca y actualiza paquetes de
-pacman, compila lo del AUR e integra AppImages.
 
-## Cómo está partida, y por qué
 
-Tres piezas, y el corte entre ellas es de privilegios:
+---
 
+## Tecnología
+
+[![Rust](https://img.shields.io/badge/Rust-1.82%2B-orange?style=flat&logo=rust)](https://www.rust-lang.org/) [![Tauri](https://img.shields.io/badge/Tauri-2.0-24283b?style=flat&logo=tauri)](https://tauri.app/) [![Vue](https://img.shields.io/badge/Vue-3.5-42b883?style=flat&logo=vue.js)](https://vuejs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.6-3178c6?style=flat&logo=typescript)](https://www.typescriptlang.org/)
+
+## Estado
+
+[![CI](https://github.com/Vasak-OS/vasak-store/actions/workflows/ci.yml/badge.svg)](https://github.com/Vasak-OS/vasak-store/actions/workflows/ci.yml)
+[![Versión](https://img.shields.io/github/v/release/Vasak-OS/vasak-store?style=flat&label=Versi%C3%B3n)](https://github.com/Vasak-OS/vasak-store/releases)
+[![Licencia](https://img.shields.io/github/license/Vasak-OS/vasak-store?style=flat)](LICENSE)
+[![Cobertura](https://sonarcloud.io/api/project_badges/measure?project=Vasak-OS_vasak-store&metric=coverage&style=flat)](https://sonarcloud.io/summary/new_code?id=Vasak-OS_vasak-store)
+[![Quality Gate](https://sonarcloud.io/api/project_badges/measure?project=Vasak-OS_vasak-store&metric=alert_status&style=flat)](https://sonarcloud.io/summary/new_code?id=Vasak-OS_vasak-store)
+[![Tamaño repo](https://img.shields.io/github/repo-size/Vasak-OS/vasak-store?style=flat)](https://github.com/Vasak-OS/vasak-store)
+
+---
+
+## Descripción
+
+
+
+**Para el usuario:** 
+
+**Integración VasakOS:** Integra con el ecosistema VasakOS vía D-Bus y configuración compartida.
+
+---
+
+## Arquitectura (diagramas)
+
+> Copia y pega la plantilla que necesites, descomenta y adapta.
+
+### Flujo de datos
+
+```mermaid
+<!--
+graph TD
+    A[Entrada: Teclado / Ratón / D-Bus / Sistema] --> B[Procesamiento: Core Rust + Tauri Commands]
+    B --> C[Salida: UI actualizada / Acciones del sistema]
+    style A fill:#e1f5fe
+    style C fill:#e8f5e9
+-->
 ```
-src/          la ventana (Vue)
-src-tauri/    la aplicación: lee, muestra, compila lo del AUR    → corre como vos
-daemon/       el servicio: cambia paquetes, escribe pacman.conf  → corre como root
-protocol/     el contrato entre los dos, y las validaciones
+
+### Componentes internos
+
+```mermaid
+<!--
+flowchart LR
+    subgraph App[Vasak store]
+        UI[Frontend Vue 3 + vue-libvasak]
+        Core[Core Rust: lógica principal]
+        IPC[Tauri Commands / Eventos]
+        System[Systemd / D-Bus / PipeWire / Wayland]
+    end
+    UI --> IPC
+    IPC --> Core
+    Core --> DBus[(D-Bus / zbus)]
+    Core --> System
+    style UI fill:#f3e5f5
+    style Core fill:#e3f2fd
+    style DBus fill:#fff3e0
+    style System fill:#fce4ec
+-->
 ```
 
-**Leer no necesita permiso.** Buscar, listar lo instalado y calcular qué se
-puede actualizar son lecturas de `/var/lib/pacman`, que ya es legible por
-cualquiera. Las hace la aplicación en su proceso, con `libalpm` directo. Eso
-tiene dos consecuencias: la ventana contesta al instante, sin ida y vuelta por
-el bus del sistema, y el proceso que corre como root **no atiende consultas**,
-así que tiene bastante menos por donde entrarle.
+### Integración en el sistema VasakOS
 
-**Cambiar sí.** Instalar, quitar, actualizar y tocar `/etc/pacman.conf` pasan por
-el demonio, y cada operación la autoriza polkit. Son dos acciones distintas
-—paquetes y repositorios— porque no son lo mismo: instalar es una decisión sobre
-un programa, y agregar un repositorio es entregarle al sistema una fuente de
-paquetes para siempre.
+```mermaid
+<!--
+C4Context
+    title Vasak store en VasakOS
+    Person(usuario, "Usuario", "Persona que usa el sistema")
+    System_Boundary(c1, "VasakOS") {
+        System(app, "Vasak store", "")
+        System_Ext(settings, "vasak-settings", "Configuración central")
+        System_Ext(keyring, "vasak-keyring", "Secrets y claves")
+        System_Ext(accounts, "vasak-accounts", "Cuentas e identidad")
+        System_Ext(permissions, "vasak-permissions", "Permisos y portales")
+    }
+    System_Ext(systemd, "systemd", "Gestión de servicios")
+    System_Ext(dbus, "D-Bus", "Bus de mensajes del sistema")
+    System_Ext(wayland, "Wayland / Wayfire", "Compositor")
+    System_Ext(pipewire, "PipeWire", "Multimedia")
+    Rel(usuario, app, "Usa")
+    Rel(app, settings, "Lee/escribe config")
+    Rel(app, keyring, "Guarda/lee secrets")
+    Rel(app, accounts, "Identidad de cuenta")
+    Rel(app, permissions, "Solicita permisos")
+    Rel(app, systemd, "Activación / sockets")
+    Rel(app, dbus, "Expone / consume interfaces")
+    Rel(app, wayland, "Superficies / protocolos")
+    Rel(app, pipewire, "Streams de audio/video")
+-->
+```
 
-En los dos lados el handle de `libalpm` vive en un **hilo del sistema operativo
-dedicado**. No es capricho: `alpm::Alpm` guarda punteros crudos y registra
-funciones de retorno, así que no es `Send` y no puede vivir en una tarea
-asíncrona, que es lo que zbus y Tauri necesitan.
+---
 
-## Las tres fuentes, y qué se confía de cada una
+## Instalación
 
-La distribución tiene una jerarquía explícita y la tienda la respeta:
-
-| | Qué es | Qué hace la tienda |
-|---|---|---|
-| **pacman** | firmado y revisado | instala directo, con vista previa de lo que arrastra |
-| **AUR** | recetas que sube cualquiera | **muestra el PKGBUILD antes**, compila como vos y le entrega el paquete al demonio |
-| **AppImage** | un archivo que bajaste | lo integra en tu carpeta, donde lo alcanza el perfil de AppArmor |
-
-Del AUR: no hay ayudante externo. La RPC da los metadatos, `makepkg` compila
-—nunca como root— y el paquete construido se instala por el demonio, que es el
-único que instala. El botón de instalar de una ficha del AUR **no instala**:
-abre la receta. Marcar algo como inseguro y no dar manera de mirarlo es un
-cartel.
-
-De los AppImage: el `.desktop` se escribe con el nombre del archivo y un ícono
-genérico, y no se saca del propio AppImage. Extraerlo con `--appimage-extract`
-es ejecutarlo, y integrar un archivo recién bajado no puede significar correrlo.
-
-## Lo que no hace, dicho de frente
-
-- **No hay «más descargadas» ni «tendencias».** Ese dato no existe en la
-  máquina: nadie lleva la cuenta de qué instala la gente. Descubrir muestra un
-  sorteo diario y lo actualizado hace poco, y los títulos dicen exactamente eso.
-- **Una operación en curso no se puede cancelar.** El candado de pacman admite
-  un solo dueño y una transacción interrumpida a mitad de la escritura es
-  justamente lo que rompe un sistema. Se puede no empezarla.
-- **Las claves PGP nuevas no se importan solas.** Si una operación pide confiar
-  en una clave desconocida, falla y lo dice. Importar una clave es ampliar para
-  siempre en quién confía el sistema, y la función de retorno que recibe esa
-  pregunta corre dentro de la transacción, en un hilo sin ventana con quien
-  preguntarle. Se importa a mano, con `pacman-key`.
-- **`core` y `extra` no se pueden apagar ni quitar desde acá.** Editando
-  `/etc/pacman.conf` sí, que es adonde va quien de verdad quiere hacerlo. Lo que
-  no puede pasar es que un clic en una lista deje la máquina sin actualizaciones
-  de seguridad.
-- **El catálogo cubre unas 1400 aplicaciones** sobre más de 15 000 paquetes. El
-  resto son bibliotecas y herramientas de línea de comandos, que no es lo que
-  alguien busca en una tienda. Descubrir muestra lo que tiene ficha; buscar
-  encuentra todo.
-
-## Dos cosas que descubrimos armando esto
-
-**Los íconos del catálogo son JPEG XL.** Los 3843, ni uno en PNG, y WebKit no
-dibuja ese formato: puestos tal cual en un `<img>` no se ve nada, y sin error.
-Se decodifican con `jxl-oxide` —Rust puro— y se guardan como PNG en la caché.
-
-**Las capturas son URL remotas.** Cargarlas desde la ventana pediría abrir la
-política de contenido a `https://*`, que es justo lo que esa política está para
-impedir, y de paso le contaría a cada servidor qué fichas se miran. Se bajan
-desde Rust, con límite de tamaño y de tiempo, y se sirven desde el disco.
-
-## Probarlo
+### Arch Linux (repo oficial)
 
 ```bash
-bun install
+pacman -S vasak-vasak-store
+```
+
+### Debian / Ubuntu (.deb)
+
+```bash
+wget https://github.com/Vasak-OS/vasak-store/releases/download/v{{VERSION}}/vasak-vasak-store_{{VERSION}}_amd64.deb
+sudo apt install ./vasak-vasak-store_{{VERSION}}_amd64.deb
+```
+
+### Desde fuente
+
+```bash
+git clone https://github.com/Vasak-OS/vasak-store.git
+cd vasak-store
+
+# Desarrollo (recarga en caliente frontend + backend)
+bun run dev
+
+# Build producción
+bun run build
+
+# Solo frontend
+bun run build:frontend
+
+# Solo backend Rust
+cargo build --release --locked
+```
+
+### Flatpak / AppImage
+
+> *Placeholder: añadir cuando exista paquete Flatpak o AppImage oficial.*
+
+---
+
+## Uso rápido
+
+```bash
+# Se lanza automáticamente (systemd --user) o manualmente:
+vasak-store
+```
+
+### Atajos / flags principales
+
+| Acción | Comando / Tecla |
+|--------|-----------------|
+| Acción principal | `vasak-store` |
+| Configuración | `vasak-store --config` |
+| Ayuda | `vasak-store --help` |
+
+> **Captura:** `assets/demo.gif` *(placeholder — sustituir por GIF real)*
+
+---
+
+## Configuración
+
+### Archivo de configuración
+
+```
+~/.config/vasak/vasak-store.toml
+```
+
+### Variables de entorno
+
+| Variable | Descripción | Por defecto |
+|----------|-------------|-------------|
+| `VASAK_DEBUG` | Activa logs de depuración en consola | `false` |
+| `VASAK_PROFILE` | Perfil de rendimiento: `balanced`, `performance`, `power-save` | `balanced` |
+
+### Integración con `tauri-plugin-config-manager`
+
+- Esquemas de color: respeta `--ui-primary`, `--ui-surface`, `--ui-focus`, `--ui-on-surface`, `--ui-border`
+- Tema de iconos: usa el tema del sistema (`vasakos-icon-theme`) vía `vicon` lookup
+- Radio de bordes: variable CSS `--ui-radius` del esquema activo (por defecto 12px)
+- Fuentes: `--ui-font-family`, `--ui-font-size-base` desde el esquema
+
+---
+
+## Desarrollo
+
+### Requisitos
+
+- **Rust:** `rustup` toolchain estable (`rust-toolchain.toml` fija la versión)
+- **Node / bun:** `bun` ≥ 1.1 (nunca npm/yarn/pnpm para apps Tauri)
+- **Sistema:** `pkg-config`, `libgtk-3-dev`, `libwebkit2gtk-4.1-dev`, `libssl-dev`
+- *`libgtk-layer-shell-dev`, `wayland-protocols`, `wayfire-dev` para Wayland*
+
+### Dependencias de desarrollo
+
+#### Sistema (paquetes Arch / Debian / Fedora)
+
+`base-devel`, `pkgconf`, `libssl-dev`, `libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`, `librsvg2-dev`, `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good`, `libpipewire-0.3-dev`, `libwireplumber-0.5-dev`, `libdbus-1-dev`, `libudev-dev`, `libxkbcommon-dev`, `libwayland-dev`, `meson`, `ninja`, `clang`, `lld`
+
+#### Rust
+
+`rustup` → `stable` + `rustfmt` + `clippy`
+
+#### Node
+
+**Solo `bun`** (nunca npm/yarn/pnpm para apps Tauri). `bun --version` ≥ 1.1
+
+#### Herramientas CLI
+
+`just` (command runner), `cargo-binstall` (opcional), `cargo-llvm-cov` (para cobertura)
+
+### Correr la app en desarrollo
+
+```bash
+# Frontend (Vite dev server + Tauri dev)
 bun run tauri dev
+
+# Solo frontend (Vite)
+bun run dev
+
+# Solo backend (cargo watch)
+cargo watch -x "run --bin vasak-store"
 ```
 
-Sin el demonio instalado la ventana abre igual: busca, muestra y navega, y avisa
-que no puede instalar. Para la mitad que cambia cosas hace falta el paquete, que
-pone la política de D-Bus, la de polkit y la unidad de systemd.
-
-Las pruebas:
+### Compilar / Build de release
 
 ```bash
-cargo test --workspace
-bun test
+# Build completo (frontend + backend + bundle)
+bun run tauri build
+
+# Solo frontend (para testear bundle después)
+bun run build
+
+# Solo backend Rust (binario optimizado)
+cargo build --release --locked
+
+# Paquetes nativos
+# Arch: makepkg -sf en PKGBUILDS/vasak-store/
+# Debian: cargo deb --no-build --target-dir src-tauri/target/release/debian
 ```
+
+### Targets principales
+
+```bash
+# Desarrollo (Tauri dev server + hot reload)
+bun run dev
+
+# Build producción
+bun run build
+
+# Solo frontend
+bun run build:frontend
+
+# Solo backend Rust
+cargo build --release --locked
+
+# Lint + tipos (pre-commit / CI)
+bunx --bun biome check .
+bunx vue-tsc --noEmit
+cargo fmt --check
+```
+
+### Pruebas
+
+```bash
+# Suite completa JS (Vitest via bun:test)
+bun test
+
+# Suite completa Rust (crates en pruebas_rust del CI)
+cargo test -p vasak-store-core -p vasak-store-ui --locked
+
+# Integración (requiere Wayfire corriendo)
+cargo test -p vasak-store-integration --locked -- --ignored
+```
+
+### Convención de commits
+
+[Conventional Commits](https://www.conventionalcommits.org/es/v1.0.0/):
+
+```
+<tipo>(<ámbito>): <descripción corta>
+
+[cuerpo opcional]
+
+[pie opcional: Closes #N]
+```
+
+Tipos habituales: `feat`, `fix`, `bugfix`, `docs`, `ci`, `chore`, `security`, `refactor`, `perf`, `test`.
+
+### Cómo abrir PR
+
+1. Rama desde `origin/main`:
+   ```bash
+   git worktree add -b feat/tema ~/wt/vasak-store-tema origin/main
+   ```
+2. Prefijos de rama: `fix/`, `feat/`, `bugfix/`, `docs/`, `ci/`, `chore/`, `security/`
+3. Escribe el fix → **`qa` escribe las pruebas** (fallan sin el fix) → suite verde → abre PR
+4. Al abrir PR, **cuatro cosas obligatorias**:
+   - Asignado a `JoaquinDecima`
+   - Etiqueta `enhancement` o `bug` (+ `ci` / `dependencies` si aplica)
+   - Añadido al proyecto «VasakOS Roadmap»
+   - Status **In Progress**
+
+---
+
+## Arquitectura (texto)
+
+### Crates / módulos principales
+
+| `vasak-store-core` | Lógica compartida: estado, D-Bus, IPC |
+| `vasak-store-ui` | Frontend Vue 3 + componentes vue-libvasak |
+| `vasak-store-tauri` | Puente Tauri: commands, eventos, WebView |
+
+### Interfaces D-Bus / zbus expuestas
+
+| `org.vasak.Vasak-store` | `GetState()`, `StateChanged(dict)`, `SetConfig(dict)` | Estado y control principal |
+| `org.vasak.Vasak-store.Panel` | `SetPosition(string)`, `SetAutohide(bool)`, `Height(u32)` | Configuración panel en runtime |
+
+### Puntos de extensión
+
+- **Plugins:** Sistema de plugins modular
+- **Hooks:** Hooks de ciclo de vida
+- **API pública Rust:** API pública del crate principal
+
+### Features / Cargo features
+
+| Feature | Descripción | Default |
+|---------|-------------|---------|
+| `system-tray` | Bandeja del sistema + menú contextual | ✓ |
+| `notifications` | Integración libnotify / freedesktop | ✓ |
+| `updater` | Auto-actualización (tauri-plugin-updater) | |
+| `devtools` | DevTools en release (solo debug) | |
+| `experimental-wayland` | Protocolo Wayland inestable | |
+
+Y para apps Tauri+Vue: features del `tauri.conf.json` → `bundle` / `plugins` / `allowlist` (capabilities).
+
+---
+
+## Pruebas y calidad
+
+- **Cobertura objetivo:** ≥ 80 % del código nuevo (SonarCloud Quality Gate)
+- **Informes:** GitHub Actions → pestaña *SonarCloud Code Analysis* → enlace a SonarCloud
+- **Añadir pruebas:** ver `AGENTS.md` sección 9 (mapa de repos y comandos de prueba)
+- **Regla:** toda corrección lleva prueba escrita por `qa` que falla sin el fix
+
+---
+
+## Contribuir
+
+- **Guía:** [.github/CONTRIBUTING.md](https://github.com/Vasak-OS/.github/blob/main/CONTRIBUTING.md)
+- **Plantillas de issue:** [.github/ISSUE_TEMPLATE/](https://github.com/Vasak-OS/.github/tree/main/ISSUE_TEMPLATE)
+- **Código de conducta:** [CODE_OF_CONDUCT.md](https://github.com/Vasak-OS/.github/blob/main/CODE_OF_CONDUCT.md)
+
+---
+
+## Donadores / Sponsors
+
+[![Sponsors](https://img.shields.io/github/sponsors/Vasak-OS?style=flat&label=Sponsors)](https://github.com/sponsors/Vasak-OS)
+
+> **Backers:** *Actualizado automáticamente en CI desde GitHub Sponsors / OpenCollective / Polar.*
+
+[💖 Donar al proyecto](https://github.com/sponsors/Vasak-OS)
+
+---
+
+## Licencia
+
+`GPL-3.0` — Copyright © 2026 **Vasak-OS Contributors**
+
+[Ver licencia completa](LICENSE)
