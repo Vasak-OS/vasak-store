@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { invoke } from '@tauri-apps/api/core';
 import { listen, type UnlistenFn } from '@tauri-apps/api/event';
 import { useConfigStore } from '@vasakgroup/plugin-config-manager';
 import { onMounted, onUnmounted, type Ref, ref } from 'vue';
@@ -12,6 +13,10 @@ const operaciones = useOperaciones();
 const tienda = useTienda();
 
 onMounted(async () => {
+	// Afina el WebKit de la ventana para bajar su consumo de memoria. Sin
+	// bloquear: si falla, la ventana abre igual.
+	invoke('tune_webview').catch(() => {});
+
 	// Los eventos del backend se escuchan desde acá, una sola vez: una
 	// instalación empezada en una sección se sigue mirando desde otra, y si la
 	// suscripción viviera en la pantalla se perderían los eventos del medio.
