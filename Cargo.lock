@@ -5108,7 +5108,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vasak-store"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "alpm",
  "alpm-utils",
@@ -5136,12 +5136,13 @@ dependencies = [
  "tempfile",
  "tokio",
  "vasak-store-protocol",
+ "webkit2gtk",
  "zbus",
 ]
 
 [[package]]
 name = "vasak-store-daemon"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "alpm",
  "alpm-utils",
@@ -5158,7 +5159,7 @@ dependencies = [
 
 [[package]]
 name = "vasak-store-protocol"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "serde",
  "serde_json",

@@ -73,6 +73,9 @@ tauri-plugin-vsk-journal = "2"
 
 # Para la ventana sin decoración: la barra propia necesita mover y redimensionar.
 gtk = "0.18"
+# Para afinar el WebKit de la ventana y bajar su consumo de memoria (ver
+# `commands/webkit.rs`). Enlaza libwebkit2gtk, que la app Tauri ya usa.
+webkit2gtk = "2.0"
 
 [dev-dependencies]
 # Sólo para el test que valida los catálogos de idioma: el plugin los parsea en

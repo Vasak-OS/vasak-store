@@ -23,6 +23,7 @@ pub mod aur;
 pub mod catalogo;
 mod cliente;
 mod comandos;
+mod commands;
 mod lector;
 mod locales;
 mod medios;
@@ -137,6 +138,7 @@ pub fn run() {
             comandos::integrar_appimage,
             comandos::quitar_appimage,
             comandos::ejecutar_appimage,
+            commands::webkit::tune_webview,
         ])
         .run(tauri::generate_context!())
         .expect("error al ejecutar la aplicación");
