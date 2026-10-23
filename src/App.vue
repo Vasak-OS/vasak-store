@@ -7,6 +7,7 @@ import OperationPanel from '@/components/store/OperationPanel.vue';
 import WindowAppLayout from '@/layouts/WindowAppLayout.vue';
 import { useOperaciones } from '@/stores/operaciones';
 import { useTienda } from '@/stores/tienda';
+import { saveTheme } from '@/tools/theme-cache';
 
 const unListenConfig: Ref<UnlistenFn | null> = ref(null);
 const operaciones = useOperaciones();
@@ -28,7 +29,7 @@ onMounted(async () => {
 	// salido bien, y la ventana abría con los colores y las fuentes de reserva.
 	const configStore = useConfigStore();
 	try {
-		await configStore.loadConfig();
+		await configStore.loadConfig().then(() => saveTheme());
 	} catch (error: unknown) {
 		console.error('Error al cargar configuración en App.vue', error);
 	}
@@ -36,7 +37,7 @@ onMounted(async () => {
 	try {
 		unListenConfig.value = await listen('config-changed', async () => {
 			document.startViewTransition(() => {
-				configStore.loadConfig();
+				configStore.loadConfig().then(() => saveTheme());
 			});
 		});
 	} catch (error: unknown) {
