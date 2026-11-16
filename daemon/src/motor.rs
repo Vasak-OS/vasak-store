@@ -15,6 +15,7 @@
 //! ventana esté abierta.
 
 use std::collections::HashMap;
+use std::sync::{Arc, Mutex};
 
 use alpm::{
     Alpm, AnyEvent, AnyQuestion, DownloadEvent, Event, LogLevel, Progress, Question, TransFlag,
@@ -81,6 +82,13 @@ struct Contexto {
     /// la vez. Mostrando la última, la barra salta hacia atrás cada vez que
     /// empieza un archivo nuevo.
     descargas: HashMap<String, (i64, i64)>,
+    /// El primer fallo que un guión de post-instalación anunció, si lo hubo.
+    ///
+    /// Compartido con quien ejecuta la transacción: un gancho puede imprimir un
+    /// error fatal —mkinitcpio dejando el initramfs vacío— y salir con cero,
+    /// así que `trans_commit` devuelve Ok y la operación parecería exitosa. La
+    /// función de retorno lo anota acá y `ejecutar` lo lee al terminar.
+    advertencia: Arc<Mutex<Option<String>>>,
 }
 
 impl Contexto {
@@ -97,6 +105,44 @@ impl Contexto {
             linea: linea.into(),
         });
     }
+
+    /// Anota el primer fallo de un guión. Los siguientes no lo pisan: el primero
+    /// suele ser la causa y el resto el arrastre.
+    fn anotar_fallo_de_gancho(&self, linea: &str) {
+        let mut anotado = self.advertencia.lock().unwrap();
+        if anotado.is_none() {
+            *anotado = Some(format!(
+                "Los paquetes se instalaron, pero un paso de post-instalación falló: «{}». \
+                 Revisá el registro y no reinicies hasta resolverlo.",
+                linea.trim()
+            ));
+        }
+    }
+
+    /// Reparte la salida de un guión: cada línea al registro y, si alguna
+    /// anuncia un fallo fatal, la anota.
+    fn procesar_scriptlet(&self, texto: &str) {
+        for linea in texto.lines() {
+            self.registrar(linea);
+            if linea_anuncia_fallo(linea) {
+                self.anotar_fallo_de_gancho(linea);
+            }
+        }
+    }
+}
+
+/// Si una línea de un guión de post-instalación anuncia un fallo fatal.
+///
+/// best-effort. mkinitcpio y los envoltorios estilo makepkg marcan el error con
+/// el prefijo `==> ERROR:`, que es la señal del caso que importa: el initramfs
+/// que no se pudo armar y deja el equipo sin arrancar.
+///
+/// shortcut: sólo ese prefijo. Un gancho que falle sin imprimirlo y además salga
+/// con cero —como el envoltorio de limine, que «saltea» y devuelve éxito— no se
+/// detecta, porque libalpm tampoco lo ve: para el handle el gancho salió bien.
+/// Eso es un defecto del gancho, no algo que desde acá se pueda cerrar del todo.
+fn linea_anuncia_fallo(linea: &str) -> bool {
+    linea.trim_start().starts_with("==> ERROR:")
 }
 
 /// El bucle del hilo. No vuelve hasta que se cierra el canal de órdenes.
@@ -186,11 +232,17 @@ fn hookdirs_con_el_default(de_pacman_conf: &[String]) -> Vec<String> {
 }
 
 /// Engancha las funciones de retorno que informan el avance.
-fn enganchar(alpm: &Alpm, id: &str, novedades: &UnboundedSender<Novedad>) {
+fn enganchar(
+    alpm: &Alpm,
+    id: &str,
+    novedades: &UnboundedSender<Novedad>,
+    advertencia: &Arc<Mutex<Option<String>>>,
+) {
     let contexto = || Contexto {
         id: id.to_string(),
         novedades: novedades.clone(),
         descargas: HashMap::new(),
+        advertencia: advertencia.clone(),
     };
 
     alpm.set_dl_cb(contexto(), |archivo, evento, ctx: &mut Contexto| {
@@ -245,11 +297,7 @@ fn enganchar(alpm: &Alpm, id: &str, novedades: &UnboundedSender<Novedad>) {
         match evento.event() {
             // Lo que un guión de post-instalación imprime es lo único que el
             // paquete tiene para decirle a la persona. Va entero al registro.
-            Event::ScriptletInfo(info) => {
-                for linea in info.line().lines() {
-                    ctx.registrar(linea);
-                }
-            }
+            Event::ScriptletInfo(info) => ctx.procesar_scriptlet(info.line()),
             Event::PackageOperationStart(op) => {
                 if let alpm::PackageOperation::Install(p) = op.operation() {
                     ctx.registrar(format!("instalando {} {}", p.name(), p.version()));
@@ -357,9 +405,10 @@ fn enganchar(alpm: &Alpm, id: &str, novedades: &UnboundedSender<Novedad>) {
 fn ejecutar(orden: Orden, novedades: &UnboundedSender<Novedad>) -> Result<(), String> {
     let id = id_de(&orden);
     let mut alpm = abrir()?;
-    enganchar(&alpm, &id, novedades);
+    let advertencia: Arc<Mutex<Option<String>>> = Arc::new(Mutex::new(None));
+    enganchar(&alpm, &id, novedades, &advertencia);
 
-    match orden {
+    let resultado = match orden {
         Orden::Sincronizar { .. } => alpm
             .syncdbs_mut()
             .update(false)
@@ -441,7 +490,15 @@ fn ejecutar(orden: Orden, novedades: &UnboundedSender<Novedad>) -> Result<(), St
             resultado
         }
         Orden::Previsualizar { .. } => Ok(()),
-    }
+    };
+
+    // Una transacción puede aplicarse —`trans_commit` devuelve Ok— y aun así
+    // dejar el sistema mal: un gancho de post-instalación que falla e igual sale
+    // con cero. Si alguno anunció un fallo fatal, la operación no es «listo».
+    resultado.and_then(|()| match advertencia.lock().unwrap().take() {
+        Some(aviso) => Err(aviso),
+        None => Ok(()),
+    })
 }
 
 /// Las banderas de una desinstalación.
@@ -620,6 +677,46 @@ mod tests {
             }),
             "t8"
         );
+    }
+
+    #[test]
+    fn una_linea_con_error_fatal_de_gancho_se_reconoce_aun_con_sangria() {
+        assert!(linea_anuncia_fallo(
+            "==> ERROR: Cannot acquire used modules. Unable to use autodetection."
+        ));
+        assert!(linea_anuncia_fallo(
+            "  ==> ERROR: module not found: 'amdgpu'"
+        ));
+    }
+
+    #[test]
+    fn el_resto_de_la_salida_de_un_gancho_no_se_toma_por_fallo() {
+        for linea in [
+            "  -> Running build hook: [autodetect]",
+            "==> Starting build: '7.2.8-2-cachyos'",
+            "==> WARNING: errors were encountered during the build.",
+            "instalando foo 1.0",
+            "",
+        ] {
+            assert!(!linea_anuncia_fallo(linea), "falso positivo: {linea:?}");
+        }
+    }
+
+    #[test]
+    fn el_primer_fallo_de_gancho_anotado_no_lo_pisa_el_segundo() {
+        let (novedades, _rx) = tokio::sync::mpsc::unbounded_channel();
+        let advertencia = Arc::new(Mutex::new(None));
+        let ctx = Contexto {
+            id: "t1".to_string(),
+            novedades,
+            descargas: HashMap::new(),
+            advertencia: advertencia.clone(),
+        };
+        ctx.anotar_fallo_de_gancho("==> ERROR: primero");
+        ctx.anotar_fallo_de_gancho("==> ERROR: segundo");
+        let guardado = advertencia.lock().unwrap().clone().unwrap();
+        assert!(guardado.contains("primero"), "{guardado}");
+        assert!(!guardado.contains("segundo"), "{guardado}");
     }
 
     /// Las bases de datos son legibles por cualquiera, así que esto corre sin
