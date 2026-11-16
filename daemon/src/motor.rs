@@ -136,16 +136,53 @@ fn id_de(orden: &Orden) -> String {
     }
 }
 
+/// El directorio donde libalpm trae sus propios ganchos.
+///
+/// Es una constante de compilación de libalpm —`$datadir/libalpm/hooks/`, que
+/// en Arch es esto— y ahí viven casi todos: `depmod`, `systemd-tmpfiles`, el
+/// despliegue del gestor de arranque. `/etc/pacman.d/hooks/` es sólo para los
+/// que agrega quien administra la máquina.
+const HOOKDIR_DEL_SISTEMA: &str = "/usr/share/libalpm/hooks/";
+
 /// Abre un handle de libalpm con la configuración real del sistema.
 ///
 /// `pacman.conf` no se interpreta acá: lo hace `pacman-conf`, que es parte de
 /// pacman y resuelve los `Include`, los `SigLevel` por repositorio y las
 /// réplicas. Reimplementar ese analizador sería tener dos ideas distintas de lo
 /// que dice el archivo, y la que importa es la de pacman.
+///
+/// Los hookdirs se corrigen a mano después: `alpm_with_conf` hace
+/// `set_hookdirs` con lo que dice `pacman-conf`, que es sólo
+/// `/etc/pacman.d/hooks/`, y **pisa** el default de libalpm
+/// —`/usr/share/libalpm/hooks/`—. pacman no hace eso: arranca con ese default y
+/// le **suma** los de la config. Sin el default, una actualización de kernel
+/// corría `90-mkinitcpio-install.hook` (que vive en los dos lados) pero no
+/// `60-depmod.hook` (que vive sólo en el default), así que mkinitcpio armaba el
+/// initramfs sin que depmod hubiera indexado los módulos del kernel nuevo: la
+/// imagen salía vacía y el equipo no arrancaba. Por terminal no pasa porque
+/// pacman sí tiene los dos directorios.
 fn abrir() -> Result<Alpm, String> {
     let conf = pacmanconf::Config::new()
         .map_err(|e| format!("no se pudo leer la configuración de pacman: {e}"))?;
-    alpm_utils::alpm_with_conf(&conf).map_err(|e| format!("no se pudo abrir libalpm: {e}"))
+    let mut alpm =
+        alpm_utils::alpm_with_conf(&conf).map_err(|e| format!("no se pudo abrir libalpm: {e}"))?;
+    let hookdirs = hookdirs_con_el_default(&conf.hook_dir);
+    alpm.set_hookdirs(hookdirs.iter().map(String::as_str))
+        .map_err(|e| format!("no se pudieron fijar los directorios de ganchos: {e}"))?;
+    Ok(alpm)
+}
+
+/// Los hookdirs que tiene que ver libalpm: el default del sistema **primero** y
+/// los de `pacman.conf` después.
+///
+/// El orden es el de pacman y no da igual: cuando un gancho existe en los dos
+/// con el mismo nombre —`90-mkinitcpio-install.hook` lo hace—, el del directorio
+/// posterior gana. `/etc/pacman.d/hooks/` tiene que ir último para que la
+/// versión de quien administra la máquina sobreponga a la del sistema.
+fn hookdirs_con_el_default(de_pacman_conf: &[String]) -> Vec<String> {
+    let mut dirs = vec![HOOKDIR_DEL_SISTEMA.to_string()];
+    dirs.extend(de_pacman_conf.iter().cloned());
+    dirs
 }
 
 /// Engancha las funciones de retorno que informan el avance.
@@ -598,5 +635,41 @@ mod tests {
             ),
             Err(razon) => panic!("no se pudo abrir libalpm: {razon}"),
         }
+    }
+
+    #[test]
+    fn el_hookdir_del_sistema_va_primero_y_los_de_pacman_conf_despues_en_orden() {
+        let de_conf = vec![
+            "/etc/pacman.d/hooks/".to_string(),
+            "/opt/ganchos/".to_string(),
+        ];
+        assert_eq!(
+            hookdirs_con_el_default(&de_conf),
+            vec![
+                "/usr/share/libalpm/hooks/".to_string(),
+                "/etc/pacman.d/hooks/".to_string(),
+                "/opt/ganchos/".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn sin_hookdirs_en_la_config_queda_el_del_sistema() {
+        assert_eq!(
+            hookdirs_con_el_default(&[]),
+            vec!["/usr/share/libalpm/hooks/".to_string()]
+        );
+    }
+
+    /// Si `pacman-conf` no se puede leer (CI sin pacman) no hay nada que
+    /// comprobar y se saltea, como en las pruebas de vasak-update.
+    #[test]
+    fn el_handle_abierto_conserva_el_hookdir_del_sistema() {
+        if pacmanconf::Config::new().is_err() {
+            return;
+        }
+        let alpm = abrir().expect("abrir libalpm");
+        let dirs: Vec<&str> = alpm.hookdirs().iter().collect();
+        assert_eq!(dirs.first().copied(), Some("/usr/share/libalpm/hooks/"));
     }
 }
