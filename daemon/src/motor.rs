@@ -118,6 +118,17 @@ impl Contexto {
             ));
         }
     }
+
+    /// Reparte la salida de un guión: cada línea al registro y, si alguna
+    /// anuncia un fallo fatal, la anota.
+    fn procesar_scriptlet(&self, texto: &str) {
+        for linea in texto.lines() {
+            self.registrar(linea);
+            if linea_anuncia_fallo(linea) {
+                self.anotar_fallo_de_gancho(linea);
+            }
+        }
+    }
 }
 
 /// Si una línea de un guión de post-instalación anuncia un fallo fatal.
@@ -286,14 +297,7 @@ fn enganchar(
         match evento.event() {
             // Lo que un guión de post-instalación imprime es lo único que el
             // paquete tiene para decirle a la persona. Va entero al registro.
-            Event::ScriptletInfo(info) => {
-                for linea in info.line().lines() {
-                    ctx.registrar(linea);
-                    if linea_anuncia_fallo(linea) {
-                        ctx.anotar_fallo_de_gancho(linea);
-                    }
-                }
-            }
+            Event::ScriptletInfo(info) => ctx.procesar_scriptlet(info.line()),
             Event::PackageOperationStart(op) => {
                 if let alpm::PackageOperation::Install(p) = op.operation() {
                     ctx.registrar(format!("instalando {} {}", p.name(), p.version()));
